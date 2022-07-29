@@ -14,6 +14,23 @@ jobs:
 
     name: Build and test
     runs-on: ubuntu-latest
+    
+    # service containers to run
+    services:
+      # label used to access the service container
+      postgres:
+        # Docker Hub image
+        image: postgres:latest
+        # service environment variables
+        # `POSTGRES_HOST` is `postgres`
+        env:
+          # optional (defaults to `postgres`)
+          POSTGRES_DB: ecto_discriminator_repo_test
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          # maps tcp port 5432 on service container to the host
+          - 5432:5432
 
     steps:
     - uses: actions/checkout@v3
