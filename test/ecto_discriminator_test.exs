@@ -14,21 +14,49 @@ defmodule EctoDiscriminatorTest do
   end
 
   test "inserts different schema" do
-    %SomeTable.Foo{title: "Foo one"}
-    |> Repo.insert()
+    content = %{length: 7}
 
-    %SomeTable.Bar{title: "Bar one"}
-    |> Repo.insert()
+    SomeTable.Foo.changeset(%SomeTable.Foo{}, %{title: "Foo one", content: content})
+    |> Repo.insert!()
 
-    %SomeTable.Bar{title: "Bar two"}
-    |> Repo.insert()
+    # we allow for empty content in Bar
+    SomeTable.Bar.changeset(%SomeTable.Bar{}, %{title: "Bar two"})
+    |> Repo.insert!()
+
+    content = %{name: "asdf"}
+
+    SomeTable.Bar.changeset(%SomeTable.Bar{}, %{title: "Bar two", content: content})
+    |> Repo.insert!()
 
     rows = SomeTable.Foo |> Repo.all()
 
     assert length(rows) == 1
 
+    # check if mapped properly
+    assert SomeTable.FooContent ==
+             get_in(rows, [Access.at(0), Access.key(:content), Access.key(:__struct__)])
+
+    assert 7 == get_in(rows, [Access.at(0), Access.key(:content), Access.key(:length)])
+
     rows = SomeTable.Bar |> Repo.all()
 
     assert length(rows) == 2
+  end
+
+  test "rejects invalid data" do
+    assert_raise ArgumentError, fn ->
+      content = %{length: 7}
+
+      %SomeTable.Bar{title: "Bar two", content: content}
+      |> Repo.insert!()
+    end
+
+    changeset = SomeTable.Foo.changeset(%SomeTable.Foo{}, %{title: "Foo one"})
+    refute changeset.valid?
+
+    content = %{status: 3}
+
+    changeset = SomeTable.Bar.changeset(%SomeTable.Bar{}, %{title: "Bar two", content: content})
+    refute changeset.valid?
   end
 end
