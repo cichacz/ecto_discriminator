@@ -1,10 +1,9 @@
 defmodule EctoDiscriminator.SomeTable.Foo do
-  use EctoDiscriminator.Schema, type: "foo"
+  use EctoDiscriminator.Schema
 
   import Ecto.Changeset
 
-  schema "some_table" do
-    field :title, :string
+  schema EctoDiscriminator.SomeTable do
     embeds_one :content, EctoDiscriminator.SomeTable.FooContent
   end
 
