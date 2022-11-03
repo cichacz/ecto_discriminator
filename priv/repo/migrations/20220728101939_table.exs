@@ -4,7 +4,8 @@ defmodule EctoDiscriminator.Repo.Migrations.Table do
   def change do
     create table(:some_table) do
       add :title, :string
-      add :type,  :string
+      add :type, :string
+      add :source, :string
     end
   end
 end

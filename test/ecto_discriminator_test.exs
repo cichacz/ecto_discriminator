@@ -7,7 +7,7 @@ defmodule EctoDiscriminatorTest do
   describe "root schema" do
     test "properly sets up schema" do
       fields = SomeTable.__schema__(:fields)
-      assert fields == [:id, :title, :type]
+      assert fields == [:id, :title, :content, :type]
     end
 
     test "provides access to discriminator column definition" do
@@ -16,7 +16,7 @@ defmodule EctoDiscriminatorTest do
 
       assert {:field, _, [:type | _]} =
                Macro.expand_once(
-                 quote(do: discriminator_field(to_string(SomeTable.Foo))),
+                 quote(do: discriminator_field(unquote(SomeTable.Foo))),
                  __ENV__
                )
     end
@@ -24,7 +24,18 @@ defmodule EctoDiscriminatorTest do
     test "provides easy access to schema fields" do
       import SomeTable
       common_fields = Macro.expand_once(quote(do: common_fields()), __ENV__)
-      assert {:field, _, [:title, :string]} = common_fields
+
+      assert {:__block__, _, [{:field, _, [:title, :string]}, {:field, _, [:content, :map]}]} =
+               common_fields
+    end
+
+    test "can insert child schemas" do
+      SomeTable.changeset(%SomeTable{}, %{title: "Foo one", type: SomeTable.Foo})
+      |> Repo.insert!()
+
+      rows = SomeTable.Foo |> Repo.all()
+
+      assert length(rows) == 1
     end
   end
 

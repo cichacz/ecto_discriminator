@@ -39,7 +39,7 @@ defmodule EctoDiscriminator.Schema do
 
   # for child schema when schema is name of root module
   defmacro schema(source, do: fields) do
-    module_name = to_string(__CALLER__.module)
+    module_name = __CALLER__.module
 
     discriminator_field =
       quote do
@@ -47,7 +47,7 @@ defmodule EctoDiscriminator.Schema do
         discriminator_field(unquote(module_name))
       end
 
-    common_fields = get_common_fields(source)
+    common_fields = get_common_fields(source, fields)
     queryable = inject_where(source)
     schema = call_ecto_schema(source, fields, common_fields, discriminator_field)
 
@@ -73,20 +73,43 @@ defmodule EctoDiscriminator.Schema do
     import Ecto.Schema, only: [field: 2]
 
     quote do
-      field(unquote(discriminator), :string)
+      field(unquote(discriminator), EctoDiscriminator.AtomType)
     end
   end
 
-  defp get_common_fields(source) do
+  defp get_common_fields(source, existing_fields) do
     quote do
       import unquote(source)
-      common_fields()
+      common_fields(unquote(existing_fields))
     end
   end
 
   defp fields_macros(common_fields_ast) do
     quote do
-      defmacro common_fields(), do: unquote(Macro.escape(common_fields_ast))
+      defmacro common_fields(existing_fields \\ []) do
+        existing_field_names =
+          existing_fields
+          |> Macro.prewalk(fn
+            {_, _, [name | _]} when is_atom(name) -> name
+            other -> other
+          end)
+          |> case do
+            {_, _, names} -> names
+            name -> [name]
+          end
+
+        unquote(Macro.escape(common_fields_ast))
+        |> Macro.prewalk(fn
+          {_, _, [name | _]} = ast when is_atom(name) ->
+            unless name in existing_field_names do
+              ast
+            end
+
+          other ->
+            other
+        end)
+        |> Macro.expand(__ENV__)
+      end
     end
   end
 
@@ -125,7 +148,7 @@ defmodule EctoDiscriminator.Schema do
       end
 
     quote bind_quoted: [source: source, field: discriminator_field] do
-      value = to_string(__MODULE__)
+      value = __MODULE__
 
       prefix = Module.get_attribute(__MODULE__, :schema_prefix)
       source_table = source.__schema__(:source)

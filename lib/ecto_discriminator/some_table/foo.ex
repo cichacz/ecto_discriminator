@@ -4,6 +4,7 @@ defmodule EctoDiscriminator.SomeTable.Foo do
   import Ecto.Changeset
 
   schema EctoDiscriminator.SomeTable do
+    field :source, :string
     embeds_one :content, EctoDiscriminator.SomeTable.FooContent
   end
 
