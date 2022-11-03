@@ -10,17 +10,6 @@ defmodule EctoDiscriminatorTest do
       assert fields == [:id, :title, :content, :type]
     end
 
-    test "provides access to discriminator column definition" do
-      import SomeTable
-      assert :type == discriminator_field_name()
-
-      assert {:field, _, [:type | _]} =
-               Macro.expand_once(
-                 quote(do: discriminator_field(unquote(SomeTable.Foo))),
-                 __ENV__
-               )
-    end
-
     test "provides easy access to schema fields" do
       import SomeTable
       common_fields = Macro.expand_once(quote(do: common_fields()), __ENV__)

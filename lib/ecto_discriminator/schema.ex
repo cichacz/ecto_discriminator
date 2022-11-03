@@ -1,31 +1,16 @@
 defmodule EctoDiscriminator.Schema do
-  defmacro __using__(_), do: set_up_schema()
-
-  # this has to be done as the last thing in the module so the attribute is readable at compile time
-  defmacro __before_compile__(_env) do
-    import Ecto.Schema, only: [field: 3]
-
-    discriminator_name = Module.get_attribute(__CALLER__.module, :discriminator)
-
-    if discriminator_name do
-      {:field, meta, opts} = build_discriminator_field(discriminator_name)
-
-      quote do
-        defmacro discriminator_field_name(), do: unquote(discriminator_name)
-
-        defmacro discriminator_field(default) do
-          {:field, unquote(meta), unquote(opts) ++ [[default: default]]}
-        end
-      end
+  defmacro __using__(discriminator) do
+    if discriminator do
+      Module.register_attribute(__CALLER__.module, :discriminator, persist: true)
+      Module.put_attribute(__CALLER__.module, :discriminator, discriminator)
     end
+
+    set_up_schema()
   end
 
   # for root schema, when schema is actually table name
   defmacro schema(source, do: fields) when is_binary(source) do
-    discriminator =
-      quote do
-        Module.get_attribute(__MODULE__, :discriminator)
-      end
+    discriminator = Module.get_attribute(__CALLER__.module, :discriminator)
 
     discriminator_field = build_discriminator_field(discriminator)
     macros = fields_macros(fields)
@@ -40,12 +25,9 @@ defmodule EctoDiscriminator.Schema do
   # for child schema when schema is name of root module
   defmacro schema(source, do: fields) do
     module_name = __CALLER__.module
+    discriminator = Module.get_attribute(Macro.expand(source, __ENV__), :discriminator)
 
-    discriminator_field =
-      quote do
-        import unquote(source), only: [discriminator_field: 1]
-        discriminator_field(unquote(module_name))
-      end
+    discriminator_field = build_discriminator_field(discriminator, module_name)
 
     common_fields = get_common_fields(source, fields)
     queryable = inject_where(source)
@@ -64,16 +46,14 @@ defmodule EctoDiscriminator.Schema do
       # replace original macro
       import Ecto.Schema, except: [schema: 2]
       import EctoDiscriminator.Schema, only: [schema: 2]
-
-      @before_compile EctoDiscriminator.Schema
     end
   end
 
-  defp build_discriminator_field(discriminator) do
+  defp build_discriminator_field(discriminator, default \\ nil) do
     import Ecto.Schema, only: [field: 2]
 
     quote do
-      field(unquote(discriminator), EctoDiscriminator.AtomType)
+      field(unquote(discriminator), EctoDiscriminator.AtomType, default: unquote(default))
     end
   end
 
@@ -141,13 +121,9 @@ defmodule EctoDiscriminator.Schema do
   defp inject_where(source) do
     import Ecto.Query, only: [where: 2]
 
-    discriminator_field =
-      quote do
-        import unquote(source), only: [discriminator_field_name: 0]
-        discriminator_field_name()
-      end
+    discriminator = Module.get_attribute(Macro.expand(source, __ENV__), :discriminator)
 
-    quote bind_quoted: [source: source, field: discriminator_field] do
+    quote bind_quoted: [source: source, field: discriminator] do
       value = __MODULE__
 
       prefix = Module.get_attribute(__MODULE__, :schema_prefix)
