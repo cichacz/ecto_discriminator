@@ -1,60 +1,50 @@
 defmodule EctoDiscriminator.Schema do
   defmacro __using__(_), do: set_up_schema()
 
-  # this has to be done as the last thing in the module so the attribute is readable at compile time
+  # this has to be done as the last thing in the module so the discriminator attribute is readable at compile time
   defmacro __before_compile__(_env) do
     import Ecto.Schema, only: [field: 3]
 
-    discriminator_name = Module.get_attribute(__CALLER__.module, :discriminator)
+    discriminator_root = Module.get_attribute(__CALLER__.module, :discriminator_root)
 
-    if discriminator_name do
-      {:field, meta, opts} = build_discriminator_field(discriminator_name)
+    if discriminator_root do
+      discriminator_name = Module.get_attribute(__CALLER__.module, :discriminator)
+      source_table = Module.get_attribute(__CALLER__.module, :source_table)
+
+      {:__block__, block_meta, common_fields_ast} =
+        Module.get_attribute(__CALLER__.module, :common_fields)
+
+      discriminator_field = build_discriminator_field(discriminator_name)
+      fields = {:__block__, block_meta, [discriminator_field | common_fields_ast]}
+
+      schema = call_ecto_schema(source_table, [fields])
+      macros = common_fields_macro(fields, discriminator_name)
 
       quote do
-        defmacro discriminator_field_name(), do: unquote(discriminator_name)
-
-        defmacro discriminator_field(default) do
-          {:field, unquote(meta), unquote(opts) ++ [[default: default]]}
-        end
+        unquote(schema)
+        unquote(macros)
       end
     end
   end
 
   # for root schema, when schema is actually table name
+  # here we only store some module attributes, and schema is actually injected in __before_compile__
   defmacro schema(source, do: fields) when is_binary(source) do
-    discriminator =
-      quote do
-        Module.get_attribute(__MODULE__, :discriminator)
-      end
-
-    discriminator_field = build_discriminator_field(discriminator)
-    macros = fields_macros(fields)
-    schema = call_ecto_schema(source, fields, discriminator_field)
-
-    quote do
-      unquote(macros)
-      unquote(schema)
-    end
+    Module.put_attribute(__CALLER__.module, :discriminator_root, true)
+    Module.put_attribute(__CALLER__.module, :common_fields, fields)
+    Module.put_attribute(__CALLER__.module, :source_table, source)
   end
 
   # for child schema when schema is name of root module
   defmacro schema(source, do: fields) do
-    module_name = __CALLER__.module
-
-    discriminator_field =
-      quote do
-        import unquote(source), only: [discriminator_field: 1]
-        discriminator_field(unquote(module_name))
-      end
-
+    # we have to call source schema during runtime to receive discriminator field data
     common_fields = get_common_fields(source, fields)
-    queryable = inject_where(source)
-    schema = call_ecto_schema(source, fields, common_fields, discriminator_field)
+    source_table = quote(do: unquote(source).__schema__(:source))
 
-    quote do
-      unquote(queryable)
-      unquote(schema)
-    end
+    # call genuine Ecto.Schema and inject our logic
+    source_table
+    |> call_ecto_schema([fields, common_fields])
+    |> inject_where(source)
   end
 
   defp set_up_schema() do
@@ -77,6 +67,16 @@ defmodule EctoDiscriminator.Schema do
     end
   end
 
+  defp call_ecto_schema(source_table, fields) do
+    import Ecto.Schema, only: [schema: 2]
+
+    quote do
+      schema unquote(source_table) do
+        (unquote_splicing(fields))
+      end
+    end
+  end
+
   defp get_common_fields(source, existing_fields) do
     quote do
       import unquote(source)
@@ -84,9 +84,13 @@ defmodule EctoDiscriminator.Schema do
     end
   end
 
-  defp fields_macros(common_fields_ast) do
+  # expose fields from source schema so children can add them to their schemas
+  defp common_fields_macro(common_fields_ast, discriminator_name) do
     quote do
-      defmacro common_fields(existing_fields \\ []) do
+      # this macro can be called only during compilation, otherwise put_attribute will fail
+      defmacro common_fields(existing_fields) do
+        Module.put_attribute(__CALLER__.module, :discriminator, unquote(discriminator_name))
+
         existing_field_names =
           existing_fields
           |> Macro.prewalk(fn
@@ -100,6 +104,10 @@ defmodule EctoDiscriminator.Schema do
 
         unquote(Macro.escape(common_fields_ast))
         |> Macro.prewalk(fn
+          {head, meta, [unquote(discriminator_name) | _] = opts} = ast ->
+            # set default value to the module that's requesting default fields
+            {head, meta, opts ++ [[default: __CALLER__.module]]}
+
           {_, _, [name | _]} = ast when is_atom(name) ->
             unless name in existing_field_names do
               ast
@@ -108,63 +116,42 @@ defmodule EctoDiscriminator.Schema do
           other ->
             other
         end)
-        |> Macro.expand(__ENV__)
       end
     end
   end
 
-  defp call_ecto_schema(source, fields, discriminator_field) when is_binary(source) do
-    import Ecto.Schema, only: [schema: 2]
-
-    quote do
-      schema unquote(source) do
-        unquote(fields)
-        unquote(discriminator_field)
-      end
-    end
-  end
-
-  defp call_ecto_schema(source, fields, common_fields, discriminator_field) do
-    import Ecto.Schema, only: [schema: 2]
-
-    quote do
-      source_table = unquote(source).__schema__(:source)
-
-      schema source_table do
-        unquote(fields)
-        unquote(common_fields)
-        unquote(discriminator_field)
-      end
-    end
-  end
-
-  defp inject_where(source) do
+  # adds default where clause to the query to reduce results to single type
+  defp inject_where(schema, source) do
     import Ecto.Query, only: [where: 2]
 
-    discriminator_field =
-      quote do
-        import unquote(source), only: [discriminator_field_name: 0]
-        discriminator_field_name()
-      end
+    updated_schema_query_fn =
+      quote bind_quoted: [source: source] do
+        value = __MODULE__
+        field = Module.get_attribute(__MODULE__, :discriminator)
+        prefix = Module.get_attribute(__MODULE__, :schema_prefix)
+        source_table = source.__schema__(:source)
 
-    quote bind_quoted: [source: source, field: discriminator_field] do
-      value = __MODULE__
-
-      prefix = Module.get_attribute(__MODULE__, :schema_prefix)
-      source_table = source.__schema__(:source)
-
-      # unfortunately we have to overwrite it that ugly way...
-      # it will warn that the original __schema__(:query) can't match because of this one
-      def __schema__(:query) do
-        query = %Ecto.Query{
-          from: %Ecto.Query.FromExpr{
-            source: {unquote(source_table), __MODULE__},
-            prefix: unquote(prefix)
+        def __schema__(:query) do
+          query = %Ecto.Query{
+            from: %Ecto.Query.FromExpr{
+              source: {unquote(source_table), __MODULE__},
+              prefix: unquote(prefix)
+            }
           }
-        }
 
-        where(query, [{unquote(field), unquote(value)}])
+          where(query, [{unquote(field), unquote(value)}])
+        end
       end
-    end
+
+    Macro.prewalk(schema, fn
+      {:schema, [context: __MODULE__, import: Ecto.Schema], _} = ast ->
+        Macro.expand_once(ast, __ENV__)
+
+      {:def, _, [{:__schema__, [context: Ecto.Schema], [:query]}, _]} ->
+        updated_schema_query_fn
+
+      other ->
+        other
+    end)
   end
 end

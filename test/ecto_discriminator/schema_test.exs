@@ -1,32 +1,21 @@
-defmodule EctoDiscriminatorTest do
+defmodule EctoDiscriminator.SchemaTest do
   use EctoDiscriminator.RepoCase
-  doctest EctoDiscriminator
+
+  alias EctoDiscriminator.Schema
 
   alias EctoDiscriminator.SomeTable
+
+  doctest Schema
 
   describe "root schema" do
     test "properly sets up schema" do
       fields = SomeTable.__schema__(:fields)
-      assert fields == [:id, :title, :content, :type]
+      assert fields == [:id, :type, :title, :content]
     end
 
-    test "provides access to discriminator column definition" do
-      import SomeTable
-      assert :type == discriminator_field_name()
-
-      assert {:field, _, [:type | _]} =
-               Macro.expand_once(
-                 quote(do: discriminator_field(unquote(SomeTable.Foo))),
-                 __ENV__
-               )
-    end
-
-    test "provides easy access to schema fields" do
-      import SomeTable
-      common_fields = Macro.expand_once(quote(do: common_fields()), __ENV__)
-
-      assert {:__block__, _, [{:field, _, [:title, :string]}, {:field, _, [:content, :map]}]} =
-               common_fields
+    test "provides access to common schema fields" do
+      available_macros = SomeTable.__info__(:macros)
+      assert [common_fields: 1] == available_macros
     end
 
     test "can insert child schemas" do
@@ -40,6 +29,11 @@ defmodule EctoDiscriminatorTest do
   end
 
   describe "child schema" do
+    test "doesn't expose common fields macro" do
+      available_macros = SomeTable.Foo.__info__(:macros)
+      assert [] == available_macros
+    end
+
     test "has discriminator field" do
       fields = SomeTable.Foo.__schema__(:fields)
       assert Enum.member?(fields, :type)

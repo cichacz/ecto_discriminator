@@ -5,9 +5,10 @@ defmodule EctoDiscriminator.MixProject do
     [
       app: :ecto_discriminator,
       version: "0.1.0",
-      elixir: "~> 1.13",
+      elixir: "~> 1.11",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
+      package: package(),
       deps: deps(),
       aliases: aliases()
     ]
@@ -16,8 +17,7 @@ defmodule EctoDiscriminator.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger],
-      mod: {EctoDiscriminator.Application, []}
+      extra_applications: [:logger]
     ]
   end
 
@@ -28,11 +28,10 @@ defmodule EctoDiscriminator.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      # {:dep_from_hexpm, "~> 0.3.0"},
-      # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
-      {:ecto_sql, "~> 3.0"},
-      {:postgrex, ">= 0.0.0"},
-      {:jason, "~> 1.2"}
+      {:ecto, "~> 3.0"},
+      {:ecto_sql, "~> 3.0", only: [:test, :dev]},
+      {:postgrex, ">= 0.0.0", only: :test},
+      {:jason, "~> 1.2", only: :test}
     ]
   end
 
@@ -41,6 +40,19 @@ defmodule EctoDiscriminator.MixProject do
       "ecto.setup": ["ecto.create", "ecto.migrate"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"]
+    ]
+  end
+
+  defp package do
+    [
+      maintainers: ["Cichacz"],
+      licenses: ["MIT"],
+      links: %{"github" => "https://github.com/cichacz/ecto_discriminator"},
+      files: [
+        "lib/ecto_discriminator",
+        "mix.exs",
+        "README.md"
+      ]
     ]
   end
 end

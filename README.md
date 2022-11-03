@@ -1,6 +1,12 @@
 # EctoDiscriminator
 
-**TODO: Add description**
+## Motivation
+This small library was built to support table-per-hierarchy inheritance pattern (TPH). 
+TPH uses a single table to store the data for all types in the hierarchy, and a discriminator column is used to identify which type each row represents.  
+
+It is similar to [Polymorphic Embed](https://hexdocs.pm/polymorphic_embed/readme.html) with few key differences.  
+Thanks to this library, those entities can be fully separated structs, which brings many simplifications during inserting and querying.  
+You can also add any extra fields that will exist only in one struct.
 
 ## Installation
 
@@ -15,7 +21,33 @@ def deps do
 end
 ```
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at <https://hexdocs.pm/ecto_discriminator>.
+## Usage
 
+It has been built to mimic `Ecto.Schema` as much as possible. That said, the only changes to do in root schema are:
+
+1. Replace Schema module
+```diff
+defmodule EctoDiscriminator.SomeTable do
+-   use Ecto.Schema
++   use EctoDiscriminator.Schema
+```
+
+2. Define discriminator column name
+```diff
++   @discriminator :type
+  schema "some_table" do
+```
+
+Then you can add some child schemas
+```elixir
+defmodule EctoDiscriminator.SomeTable.Foo do
+  use EctoDiscriminator.Schema
+  
+  schema EctoDiscriminator.SomeTable do
+    embeds_one :content, EctoDiscriminator.SomeTable.BarContent
+  end
+end
+```
+
+Library will do the rest. Querying for child schema automatically adds filter to SQL.  
+You can see example setup in `test` directory.

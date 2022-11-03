@@ -4,7 +4,7 @@ defmodule EctoDiscriminator.SomeTable do
   import Ecto.Changeset
 
   @discriminator :type
-  
+
   schema "some_table" do
     field :title, :string
     field :content, :map
@@ -14,5 +14,4 @@ defmodule EctoDiscriminator.SomeTable do
     struct
     |> cast(params, [:title, :type])
   end
-
 end
