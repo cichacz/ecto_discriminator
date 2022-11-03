@@ -27,7 +27,7 @@ defmodule EctoDiscriminator.Schema do
     end
   end
 
-  # for root schema, when schema is actually table name
+  # for root schema, when source is actually table name
   # here we only store some module attributes, and schema is actually injected in __before_compile__
   defmacro schema(source, do: fields) when is_binary(source) do
     Module.put_attribute(__CALLER__.module, :discriminator_root, true)
@@ -35,13 +35,12 @@ defmodule EctoDiscriminator.Schema do
     Module.put_attribute(__CALLER__.module, :source_table, source)
   end
 
-  # for child schema when schema is name of root module
+  # for child schema when source is name of root module
   defmacro schema(source, do: fields) do
-    # we have to call source schema during runtime to receive discriminator field data
     common_fields = get_common_fields(source, fields)
     source_table = quote(do: unquote(source).__schema__(:source))
 
-    # call genuine Ecto.Schema and inject our logic
+    # call genuine Ecto.Schema and inject our stuff
     source_table
     |> call_ecto_schema([fields, common_fields])
     |> inject_where(source)
