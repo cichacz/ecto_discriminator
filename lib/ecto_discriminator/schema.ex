@@ -19,16 +19,15 @@ defmodule EctoDiscriminator.Schema do
 
       schema = call_ecto_schema(source_table, [fields])
       macros = common_fields_macro(fields, discriminator_name)
+      schema_fn = define_helpers(discriminator_name)
 
-      quote do
-        unquote(schema)
-        unquote(macros)
-      end
+      [schema, macros, schema_fn]
     end
   end
 
   # for root schema, when source is actually table name
   # here we only store some module attributes, and schema is actually injected in __before_compile__
+  # this makes it possible to read @discriminator attribute of schema module and add it to Ecto schema
   defmacro schema(source, do: fields) when is_binary(source) do
     Module.put_attribute(__CALLER__.module, :discriminator_root, true)
     Module.put_attribute(__CALLER__.module, :common_fields, fields)
@@ -77,30 +76,28 @@ defmodule EctoDiscriminator.Schema do
   end
 
   defp get_common_fields(source, existing_fields) do
+    existing_field_names =
+      existing_fields
+      |> Macro.prewalk(fn
+        {_, _, [name | _]} when is_atom(name) -> name
+        other -> other
+      end)
+      |> case do
+        {_, _, names} -> names
+        name -> [name]
+      end
+
     quote do
       import unquote(source)
-      common_fields(unquote(existing_fields))
+      common_fields(unquote(existing_field_names))
     end
   end
 
   # expose fields from source schema so children can add them to their schemas
+  # we need this because when fields go through ecto schema there is no simple way of retrieving their full definition
   defp common_fields_macro(common_fields_ast, discriminator_name) do
     quote do
-      # this macro can be called only during compilation, otherwise put_attribute will fail
-      defmacro common_fields(existing_fields) do
-        Module.put_attribute(__CALLER__.module, :discriminator, unquote(discriminator_name))
-
-        existing_field_names =
-          existing_fields
-          |> Macro.prewalk(fn
-            {_, _, [name | _]} when is_atom(name) -> name
-            other -> other
-          end)
-          |> case do
-            {_, _, names} -> names
-            name -> [name]
-          end
-
+      defmacro common_fields(existing_field_names) do
         unquote(Macro.escape(common_fields_ast))
         |> Macro.prewalk(fn
           {head, meta, [unquote(discriminator_name) | _] = opts} = ast ->
@@ -108,6 +105,7 @@ defmodule EctoDiscriminator.Schema do
             {head, meta, opts ++ [[default: __CALLER__.module]]}
 
           {_, _, [name | _]} = ast when is_atom(name) ->
+            # we want only fields that aren't overridden in current schema
             unless name in existing_field_names do
               ast
             end
@@ -119,16 +117,21 @@ defmodule EctoDiscriminator.Schema do
     end
   end
 
+  defp define_helpers(discriminator_name) do
+    quote do
+      def __schema__(:discriminator), do: unquote(discriminator_name)
+    end
+  end
+
   # adds default where clause to the query to reduce results to single type
   defp inject_where(schema, source) do
     import Ecto.Query, only: [where: 2]
 
     updated_schema_query_fn =
       quote bind_quoted: [source: source] do
-        value = __MODULE__
-        field = Module.get_attribute(__MODULE__, :discriminator)
-        prefix = Module.get_attribute(__MODULE__, :schema_prefix)
+        prefix = source.__schema__(:prefix)
         source_table = source.__schema__(:source)
+        field = source.__schema__(:discriminator)
 
         def __schema__(:query) do
           query = %Ecto.Query{
@@ -138,12 +141,13 @@ defmodule EctoDiscriminator.Schema do
             }
           }
 
-          where(query, [{unquote(field), unquote(value)}])
+          where(query, [{unquote(field), unquote(__MODULE__)}])
         end
       end
 
     Macro.prewalk(schema, fn
       {:schema, [context: __MODULE__, import: Ecto.Schema], _} = ast ->
+        # do this to get AST after running schema macro
         Macro.expand_once(ast, __ENV__)
 
       {:def, _, [{:__schema__, [context: Ecto.Schema], [:query]}, _]} ->

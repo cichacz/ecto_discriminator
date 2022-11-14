@@ -13,9 +13,21 @@ defmodule EctoDiscriminator.SchemaTest do
       assert fields == [:id, :type, :title, :content]
     end
 
-    test "provides access to common schema fields" do
-      available_macros = SomeTable.__info__(:macros)
-      assert [common_fields: 1] == available_macros
+    test "provides access to common schema fields definitions" do
+      import SomeTable
+      {:__block__, _, common_fields} = Macro.expand_once(quote(do: common_fields([])), __ENV__)
+
+      assert [
+               # macro should set default value for discriminator column to the value of callers module
+               {:field, _, [:type, _, [default: __MODULE__]]},
+               {:field, _, [:title, :string]},
+               {:field, _, [:content, :map]}
+             ] = common_fields
+    end
+
+    test "provides access to discriminator name" do
+      discriminator_name = SomeTable.__schema__(:discriminator)
+      assert :type == discriminator_name
     end
 
     test "can insert child schemas" do
