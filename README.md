@@ -1,12 +1,12 @@
 # EctoDiscriminator
 
 ## Motivation
-This small library was built to support table-per-hierarchy inheritance pattern (TPH). 
+This small library was built to support table-per-hierarchy inheritance pattern (TPH) popular in Microsoft's Entity Framework.  
 TPH uses a single table to store the data for all types in the hierarchy, and a discriminator column is used to identify which type each row represents.  
 
 It is similar to [Polymorphic Embed](https://hexdocs.pm/polymorphic_embed/readme.html) with few key differences.  
 Thanks to this library, those entities can be fully separated structs, which brings many simplifications during inserting and querying.  
-You can also add any extra fields that will exist only in one struct.
+You can also add any extra fields that will exist only in one struct (for example virtual ones or relationships).
 
 ## Installation
 

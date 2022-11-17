@@ -12,6 +12,6 @@ defmodule EctoDiscriminator.SomeTable.FooContent do
     struct
     |> cast(params, [:length])
     |> validate_required([:length])
-    |> put_change(:date, DateTime.utc_now())
+    |> put_change(:date, DateTime.utc_now() |> DateTime.truncate(:second))
   end
 end

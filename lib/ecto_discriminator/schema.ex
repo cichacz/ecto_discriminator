@@ -38,11 +38,15 @@ defmodule EctoDiscriminator.Schema do
   defmacro schema(source, do: fields) do
     common_fields = get_common_fields(source, fields)
     source_table = quote(do: unquote(source).__schema__(:source))
+    changeset_helpers = define_changeset_helpers(source)
 
     # call genuine Ecto.Schema and inject our stuff
-    source_table
-    |> call_ecto_schema([fields, common_fields])
-    |> inject_where(source)
+    schema_ast =
+      source_table
+      |> call_ecto_schema([fields, common_fields])
+      |> inject_where(source)
+
+    [schema_ast, changeset_helpers]
   end
 
   defp set_up_schema() do
@@ -123,6 +127,19 @@ defmodule EctoDiscriminator.Schema do
     end
   end
 
+  defp define_changeset_helpers(source) do
+    quote bind_quoted: [source: source] do
+      def discriminated_changeset(struct, params) do
+        unquote(source)
+        |> struct(Map.from_struct(struct))
+        |> unquote(source).changeset(params)
+        # replace data & types with specific schema to be able to continue in original changeset
+        |> Map.put(:data, struct)
+        |> Map.put(:types, struct.__struct__.__changeset__())
+      end
+    end
+  end
+
   # adds default where clause to the query to reduce results to single type
   defp inject_where(schema, source) do
     import Ecto.Query, only: [where: 2]
@@ -146,7 +163,7 @@ defmodule EctoDiscriminator.Schema do
       end
 
     Macro.prewalk(schema, fn
-      {:schema, [context: __MODULE__, import: Ecto.Schema], _} = ast ->
+      {:schema, [context: __MODULE__, imports: [{2, Ecto.Schema}]], _} = ast ->
         # do this to get AST after running schema macro
         Macro.expand_once(ast, __ENV__)
 

@@ -5,11 +5,14 @@ defmodule EctoDiscriminator.SomeTable.Bar do
 
   schema EctoDiscriminator.SomeTable do
     embeds_one :content, EctoDiscriminator.SomeTable.BarContent
+    belongs_to :sibling, EctoDiscriminator.SomeTable.Foo
+    has_one :child, EctoDiscriminator.SomeTable, foreign_key: :parent_id
   end
 
   def changeset(struct, params \\ %{}) do
     struct
-    |> cast(params, [:title])
+    |> discriminated_changeset(params)
     |> cast_embed(:content)
+    |> put_assoc(:sibling, params[:sibling])
   end
 end
