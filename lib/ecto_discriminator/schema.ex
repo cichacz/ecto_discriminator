@@ -163,10 +163,11 @@ defmodule EctoDiscriminator.Schema do
       end
 
     Macro.prewalk(schema, fn
-      {:schema, [context: __MODULE__, imports: [{2, Ecto.Schema}]], _} = ast ->
+      {:schema, _, _} = ast ->
         # do this to get AST after running schema macro
         Macro.expand_once(ast, __ENV__)
 
+      # make sure this def comes from Ecto
       {:def, _, [{:__schema__, [context: Ecto.Schema], [:query]}, _]} ->
         updated_schema_query_fn
 
