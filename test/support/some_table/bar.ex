@@ -10,8 +10,10 @@ defmodule EctoDiscriminator.SomeTable.Bar do
 
   def changeset(struct, params \\ %{}) do
     struct
-    |> cast_base(params)
+    |> cast(params, [:title])
     |> cast_embed(:content)
     |> put_assoc(:sibling, params[:sibling])
+    # test different order
+    |> cast_base(params)
   end
 end

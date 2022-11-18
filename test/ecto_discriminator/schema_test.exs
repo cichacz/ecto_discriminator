@@ -118,6 +118,7 @@ defmodule EctoDiscriminator.SchemaTest do
     end
 
     test "rejects invalid data" do
+      # should fail because content has different fields
       assert_raise ArgumentError, fn ->
         content = %{length: 7}
 
@@ -125,9 +126,11 @@ defmodule EctoDiscriminator.SchemaTest do
         |> Repo.insert!()
       end
 
+      # should fail because content is required
       changeset = SomeTable.Foo.changeset(%SomeTable.Foo{}, %{title: "Foo one"})
       refute changeset.valid?
 
+      # should fail because "name" is required
       content = %{status: 3}
 
       changeset = SomeTable.Bar.changeset(%SomeTable.Bar{}, %{title: "Bar two", content: content})

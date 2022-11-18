@@ -3,6 +3,7 @@ defmodule EctoDiscriminator.SomeTable.FooContent do
 
   import Ecto.Changeset
 
+  @primary_key false
   embedded_schema do
     field :length, :integer
     field :date, :utc_datetime

@@ -3,6 +3,7 @@ defmodule EctoDiscriminator.SomeTable.BarContent do
 
   import Ecto.Changeset
 
+  @primary_key false
   embedded_schema do
     field :name, :string
     field :status, :integer
@@ -11,6 +12,6 @@ defmodule EctoDiscriminator.SomeTable.BarContent do
   def changeset(struct, params \\ %{}) do
     struct
     |> cast(params, [:name, :status])
-    |> validate_required([:name])
+    |> validate_required(:name)
   end
 end

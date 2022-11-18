@@ -15,5 +15,6 @@ defmodule EctoDiscriminator.SomeTable do
     struct
     |> cast(params, [:title, :type])
     |> put_assoc(:parent, params[:parent])
+    |> validate_required(:type)
   end
 end
