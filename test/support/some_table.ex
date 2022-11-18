@@ -8,7 +8,7 @@ defmodule EctoDiscriminator.SomeTable do
   schema "some_table" do
     field :title, :string
     field :content, :map
-    belongs_to :parent, EctoDiscriminator.SomeTable.Bar
+    belongs_to :parent, EctoDiscriminator.SomeTable.Foo
   end
 
   def changeset(struct, params \\ %{}) do

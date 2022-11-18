@@ -1,5 +1,5 @@
 defmodule EctoDiscriminator.SchemaTest do
-  use EctoDiscriminator.RepoCase
+  use EctoDiscriminator.RepoCase, async: true
 
   alias EctoDiscriminator.Schema
 
@@ -7,7 +7,7 @@ defmodule EctoDiscriminator.SchemaTest do
 
   doctest Schema
 
-  describe "root schema" do
+  describe "base schema" do
     test "properly sets up schema" do
       fields = SomeTable.__schema__(:fields)
       assert fields == [:id, :type, :title, :content, :parent_id]
@@ -47,9 +47,9 @@ defmodule EctoDiscriminator.SchemaTest do
       assert [] == available_macros
     end
 
-    test "has discriminator field injected" do
+    test "has common fields injected" do
       fields = SomeTable.Foo.__schema__(:fields)
-      assert Enum.member?(fields, :type)
+      assert fields == [:id, :source, :content, :type, :title, :parent_id]
     end
 
     test "inserts different schema" do
@@ -82,28 +82,39 @@ defmodule EctoDiscriminator.SchemaTest do
       assert length(rows) == 2
     end
 
-    test "allows working with relationships" do
+    test "allows setting fields from base schema" do
+      # check if we can set common fields
       foo =
         SomeTable.Foo.changeset(%SomeTable.Foo{}, %{title: "Foo one", content: %{length: 7}})
         |> Repo.insert!()
 
+      # check if we can set common relationships
+      child =
+        SomeTable.Bar.changeset(%SomeTable.Bar{}, %{title: "Bar two", parent: foo})
+        |> Repo.insert!()
+
+      # check if we can set custom relationships
       bar =
         SomeTable.Bar.changeset(%SomeTable.Bar{}, %{title: "Bar two", sibling: foo})
         |> Repo.insert!()
 
-      child =
-        SomeTable.changeset(%SomeTable{}, %{title: "Bar two", parent: bar})
-        |> Repo.insert!()
+      child_preload_chain = [parent: [:parent, sibling: [:parent, sibling: [:parent]]]]
 
-      bar_preloaded =
-        bar |> Repo.preload(child: [parent: [:parent, sibling: [:parent]]], sibling: [:parent])
+      child_preloaded = SomeTable |> Repo.get(child.id) |> Repo.preload(child_preload_chain)
+
+      bar_preloaded = bar |> Repo.preload(sibling: [:parent])
 
       [foo_preloaded] =
-        SomeTable.Foo |> Repo.all() |> Repo.preload(sibling: [:parent, sibling: [:parent]])
+        SomeTable.Foo
+        |> Repo.all()
+        |> Repo.preload(
+          child: child_preload_chain,
+          sibling: [:parent, sibling: [:parent]]
+        )
 
-      assert %{sibling: ^bar} = foo_preloaded
-      assert %{sibling: ^foo, child: ^child} = bar_preloaded
-      assert bar_preloaded.child.parent.sibling == foo
+      assert %{sibling: ^bar, child: ^child_preloaded} = foo_preloaded
+      assert %{sibling: ^foo} = bar_preloaded
+      assert foo_preloaded.child.parent.sibling == bar
     end
 
     test "rejects invalid data" do

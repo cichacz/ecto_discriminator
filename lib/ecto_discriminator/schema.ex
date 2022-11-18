@@ -128,14 +128,17 @@ defmodule EctoDiscriminator.Schema do
   end
 
   defp define_changeset_helpers(source) do
-    quote bind_quoted: [source: source] do
-      def discriminated_changeset(struct, params) do
-        unquote(source)
-        |> struct(Map.from_struct(struct))
-        |> unquote(source).changeset(params)
-        # replace data & types with specific schema to be able to continue in original changeset
-        |> Map.put(:data, struct)
-        |> Map.put(:types, struct.__struct__.__changeset__())
+    quote do
+      if function_exported?(unquote(source), :changeset, 2) do
+        def cast_base(struct, params) do
+          # we have to change type of our struct to call changeset of source schema
+          struct
+          |> Map.put(:__struct__, unquote(source))
+          |> unquote(source).changeset(params)
+          # replace data & types with current schema to be able to continue in original changeset
+          |> Map.put(:data, struct)
+          |> Map.put(:types, struct.__struct__.__changeset__())
+        end
       end
     end
   end
