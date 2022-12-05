@@ -13,8 +13,7 @@ defmodule EctoDiscriminator.SomeTable do
 
   def changeset(struct, params \\ %{}) do
     struct
-    |> cast(params, [:title, :type])
+    |> cast(params, [:title])
     |> put_assoc(:parent, params[:parent])
-    |> validate_required(:type)
   end
 end

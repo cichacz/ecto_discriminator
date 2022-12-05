@@ -34,11 +34,11 @@ defmodule EctoDiscriminator.Schema do
     Module.put_attribute(__CALLER__.module, :source_table, source)
   end
 
-  # for child schema when source is name of root module
+  # for diverged schema when source is name of root module
   defmacro schema(source, do: fields) do
     common_fields = get_common_fields(source, fields)
     source_table = quote(do: unquote(source).__schema__(:source))
-    changeset_helpers = define_changeset_helpers(source)
+    changeset_helpers = define_diverged_helpers(source)
 
     # call genuine Ecto.Schema and inject our stuff
     schema_ast =
@@ -97,7 +97,7 @@ defmodule EctoDiscriminator.Schema do
     end
   end
 
-  # expose fields from source schema so children can add them to their schemas
+  # expose fields from source schema so diverged schemas can add them to their schemas
   # we need this because when fields go through ecto schema there is no simple way of retrieving their full definition
   defp common_fields_macro(common_fields_ast, discriminator_name) do
     quote do
@@ -124,19 +124,44 @@ defmodule EctoDiscriminator.Schema do
   defp define_helpers(discriminator_name) do
     quote do
       def __schema__(:discriminator), do: unquote(discriminator_name)
+
+      def diverged_changeset(struct, params \\ %{}), do: cast_diverged(struct, params)
+
+      defp cast_diverged(%Ecto.Changeset{} = changeset, params) do
+        changeset.data
+        |> cast_diverged(params)
+        |> Ecto.Changeset.merge(changeset)
+      end
+
+      defp cast_diverged(%_{} = data, params) do
+        discriminator_struct = Map.get(params, unquote(discriminator_name), data.__struct__)
+
+        if function_exported?(discriminator_struct, :changeset, 2) do
+          # just call changeset from the derived schema and hope it calls cast_base to pull fields from the base schema
+          data
+          |> Map.put(:__struct__, discriminator_struct)
+          |> discriminator_struct.changeset(params)
+        else
+          data
+        end
+      end
     end
   end
 
-  defp define_changeset_helpers(source) do
-    quote do
-      if function_exported?(unquote(source), :changeset, 2) do
-        def cast_base(%Ecto.Changeset{} = changeset, params) do
+  defp define_diverged_helpers(source) do
+    quote bind_quoted: [source: source] do
+      if function_exported?(source, :changeset, 2) do
+        import Ecto.Changeset
+
+        field = source.__schema__(:discriminator)
+
+        defp cast_base(%Ecto.Changeset{} = changeset, params) do
           changeset.data
           |> cast_base(params)
-          |> Ecto.Changeset.merge(changeset)
+          |> merge(changeset)
         end
 
-        def cast_base(%_{} = struct, params) do
+        defp cast_base(%_{} = struct, params) do
           # we have to change type of our struct to call changeset of source schema
           struct
           |> Map.put(:__struct__, unquote(source))
@@ -144,6 +169,9 @@ defmodule EctoDiscriminator.Schema do
           # replace data & types with current schema to be able to continue in original changeset
           |> Map.put(:data, struct)
           |> Map.put(:types, __MODULE__.__changeset__())
+          # add discriminator field to changeset
+          |> cast(params, [unquote(field)])
+          |> validate_required(unquote(field))
         end
       end
     end

@@ -31,17 +31,32 @@ defmodule EctoDiscriminator.SchemaTest do
       assert :type == discriminator_name
     end
 
-    test "can insert child schemas" do
-      SomeTable.changeset(%SomeTable{}, %{title: "Foo one", type: SomeTable.Foo})
+    test "can insert diverged schemas" do
+      SomeTable.diverged_changeset(%SomeTable{}, %{
+        title: "Foo one",
+        source: "asdf",
+        type: SomeTable.Foo,
+        content: %{length: 7}
+      })
       |> Repo.insert!()
 
       rows = SomeTable.Foo |> Repo.all()
 
       assert length(rows) == 1
     end
+
+    test "validates diverged schemas" do
+      assert {:error, %{errors: [content: {"can't be blank", [validation: :required]}]}} =
+               SomeTable.diverged_changeset(%SomeTable{}, %{
+                 title: "Foo one",
+                 source: "asdf",
+                 type: SomeTable.Foo
+               })
+               |> Repo.insert()
+    end
   end
 
-  describe "child schema" do
+  describe "diverged schema" do
     test "doesn't define common fields macro" do
       available_macros = SomeTable.Foo.__info__(:macros)
       assert [] == available_macros
