@@ -46,7 +46,7 @@ defmodule EctoDiscriminator.SomeTable do
     schema "some_table" do
 ```
 
-Then you can add some child schemas
+Then you can add some diverged schemas
 
 ```elixir
 defmodule EctoDiscriminator.SomeTable.Foo do
@@ -58,11 +58,17 @@ defmodule EctoDiscriminator.SomeTable.Foo do
 end
 ```
 
-Library will do the rest. Querying for child schema automatically adds filter to SQL.  
-You can see example setup in `test` directory.
+Library will do the rest. Querying for diverged schema automatically adds filter to SQL.  
 
 ### Changeset
 
-To reduce repetitive usage of `cast` with a list of common fields inside child changesets you can
+To reduce repetitive usage of `cast` with a list of common fields for diverged schemas you can
 call `cast_base(params)` to automatically apply changeset from base schema.  
 This function **won't** be available if base schema doesn't have any `changeset/2` function
+
+Some may find it useful to insert diverged schema directly from the base (by specifying discriminator value in changeset params).  
+This is doable by calling `diverged_changeset` function on base schema.
+
+## Examples
+
+You can see example setup in `test` directory.
