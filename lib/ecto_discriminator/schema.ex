@@ -5,9 +5,9 @@ defmodule EctoDiscriminator.Schema do
   defmacro __before_compile__(_env) do
     import Ecto.Schema, only: [field: 3]
 
-    discriminator_root = Module.get_attribute(__CALLER__.module, :discriminator_root)
+    discriminator_base = Module.get_attribute(__CALLER__.module, :discriminator_base)
 
-    if discriminator_root do
+    if discriminator_base do
       discriminator_name = Module.get_attribute(__CALLER__.module, :discriminator)
       source_table = Module.get_attribute(__CALLER__.module, :source_table)
 
@@ -25,28 +25,35 @@ defmodule EctoDiscriminator.Schema do
     end
   end
 
-  # for root schema, when source is actually table name
+  # for base schema, when source is actually table name
   # here we only store some module attributes, and schema is actually injected in __before_compile__
   # this makes it possible to read @discriminator attribute of schema module and add it to Ecto schema
   defmacro schema(source, do: fields) when is_binary(source) do
-    Module.put_attribute(__CALLER__.module, :discriminator_root, true)
+    Module.put_attribute(__CALLER__.module, :discriminator_base, true)
     Module.put_attribute(__CALLER__.module, :common_fields, fields)
     Module.put_attribute(__CALLER__.module, :source_table, source)
   end
 
-  # for diverged schema when source is name of root module
+  # for diverged schema when source is name of the module from which we inherit fields
   defmacro schema(source, do: fields) do
-    common_fields = get_common_fields(source, fields)
-    source_table = quote(do: unquote(source).__schema__(:source))
-    changeset_helpers = define_diverged_helpers(source)
+    source_module = Macro.expand(source, __ENV__)
+    base_module = get_base_module(source_module)
+    common_fields = get_common_fields(source_module, fields)
+
+    discriminator_name = base_module.__schema__(:discriminator)
+    source_table = base_module.__schema__(:source)
+    changeset_helpers = define_diverged_helpers(source_module, base_module)
 
     # call genuine Ecto.Schema and inject our stuff
     schema_ast =
       source_table
       |> call_ecto_schema([fields, common_fields])
-      |> inject_where(source)
+      |> inject_where(base_module)
 
-    [schema_ast, changeset_helpers]
+    # build common_fields_macro so others can inherit from this schema
+    macros = common_fields_macro([fields, common_fields], discriminator_name)
+
+    [schema_ast, changeset_helpers, macros]
   end
 
   defp set_up_schema() do
@@ -92,9 +99,16 @@ defmodule EctoDiscriminator.Schema do
       end
 
     quote do
-      import unquote(source)
-      common_fields(unquote(existing_field_names))
+      import unquote(source), only: [common_fields: 1]
+      unquote(source).common_fields(unquote(existing_field_names))
     end
+  end
+
+  # used to retrieve base schema (the one that doesn't inherit from anything)
+  defp get_base_module(source) do
+    apply(source, :__schema__, [:base_module])
+  rescue
+    FunctionClauseError -> source
   end
 
   # expose fields from source schema so diverged schemas can add them to their schemas
@@ -148,12 +162,14 @@ defmodule EctoDiscriminator.Schema do
     end
   end
 
-  defp define_diverged_helpers(source) do
-    quote bind_quoted: [source: source] do
+  defp define_diverged_helpers(source, base_module) do
+    quote bind_quoted: [source: source, base_module: base_module] do
+      def __schema__(:base_module), do: unquote(base_module)
+
       if function_exported?(source, :changeset, 2) do
         import Ecto.Changeset
 
-        field = source.__schema__(:discriminator)
+        field = base_module.__schema__(:discriminator)
 
         defp cast_base(%Ecto.Changeset{} = changeset, params) do
           changeset.data

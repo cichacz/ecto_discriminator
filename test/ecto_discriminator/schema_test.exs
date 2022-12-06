@@ -57,9 +57,9 @@ defmodule EctoDiscriminator.SchemaTest do
   end
 
   describe "diverged schema" do
-    test "doesn't define common fields macro" do
+    test "defines common fields macro" do
       available_macros = SomeTable.Foo.__info__(:macros)
-      assert [] == available_macros
+      assert [{:common_fields, 1}] == available_macros
     end
 
     test "has common fields injected" do
@@ -132,6 +132,24 @@ defmodule EctoDiscriminator.SchemaTest do
       assert foo_preloaded.child.parent.sibling == bar
     end
 
+    test "handles complex queries" do
+      foo =
+        SomeTable.Foo.changeset(%SomeTable.Foo{}, %{title: "Foo one", content: %{length: 7}})
+        |> Repo.insert!()
+
+      bar =
+        SomeTable.Bar.changeset(%SomeTable.Bar{}, %{title: "Bar two", sibling: foo})
+        |> Repo.insert!()
+
+      [bar_preloaded] =
+        SomeTable.Bar
+        |> join(:left, [bar], foo in assoc(bar, :sibling))
+        |> preload([bar, foo], [:parent, sibling: {foo, [:parent]}])
+        |> Repo.all()
+
+      assert bar_preloaded == %{bar | sibling: foo}
+    end
+
     test "rejects invalid data" do
       # should fail because content has different fields
       assert_raise ArgumentError, fn ->
@@ -150,6 +168,41 @@ defmodule EctoDiscriminator.SchemaTest do
 
       changeset = SomeTable.Bar.changeset(%SomeTable.Bar{}, %{title: "Bar two", content: content})
       refute changeset.valid?
+
+      changeset =
+        SomeTable.Qux.changeset(%SomeTable.Qux{}, %{
+          title: "Qux",
+          is_special: false,
+          is_qux: true
+        })
+
+      refute changeset.valid?
+    end
+
+    test "can be base schema for another one" do
+      SomeTable.Baz.changeset(%SomeTable.Baz{}, %{
+        title: "Baz",
+        source: "bar",
+        content: %{length: 3},
+        is_special: true
+      })
+      |> Repo.insert!()
+
+      assert [baz_from_repo] = SomeTable.Baz |> preload(:parent) |> Repo.all()
+      assert baz_from_repo.is_special == true
+
+      SomeTable.Qux.changeset(%SomeTable.Qux{}, %{
+        title: "Qux",
+        source: "baz",
+        content: %{length: 3},
+        is_special: false,
+        is_qux: true
+      })
+      |> Repo.insert!()
+
+      assert [qux_from_repo] = SomeTable.Qux |> preload(:parent) |> Repo.all()
+      # make sure it was properly stored and fetched.
+      assert qux_from_repo.is_special === false
     end
   end
 end
