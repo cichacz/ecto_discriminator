@@ -32,7 +32,8 @@ defmodule EctoDiscriminator.MixProject do
       {:ecto, "~> 3.0"},
       {:ecto_sql, "~> 3.0", only: [:test, :dev]},
       {:postgrex, ">= 0.0.0", only: :test},
-      {:jason, "~> 1.2", only: :test}
+      {:jason, "~> 1.2", only: :test},
+      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
     ]
   end
 
