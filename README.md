@@ -12,6 +12,21 @@ Thanks to this library, those entities can be fully separated structs, which bri
 inserting and querying.  
 You can also add any extra fields that will exist only in one struct (for example virtual ones or relationships).
 
+### Inheritance, huh?!
+
+It may seem not reasonable to introduce concept of inheritance to the Ecto (and Elixir itself), but for some cases I
+think it's better to have it instead of repeated code.  
+Inheritance is natural for our environment, everything comes from some more general being and shares its capabilities.  
+Without it, you're left just with pattern matching, and it's enough for most cases, but not all of them.  
+
+Quick example:  
+mug and cup, they look almost the same, but cup can have reference to a saucer.  
+You could preload this reference for both and just remember that for mugs it's always empty, but this generates extra
+load on the DB (which doesn't know what you know) and forces you to explain for any new person to the project why this
+will be missing for mug
+
+So yea, this library introduces a concept of inheritance to your code.
+
 ## Installation
 
 If [available in Hex](https://hex.pm/docs/publish), the package can be installed by adding `ecto_discriminator` to your
@@ -58,15 +73,16 @@ defmodule EctoDiscriminator.SomeTable.Foo do
 end
 ```
 
-Library will do the rest. Querying for diverged schema automatically adds filter to SQL.  
+Library will do the rest. Querying for diverged schema automatically adds filter to SQL.
 
 ### Changeset
 
-To reduce repetitive usage of `cast` with a list of common fields for diverged schemas you can
-call `cast_base(params)` to automatically apply changeset from base schema.  
+To reduce repetitive usage of `cast` with a list of common fields for diverged schemas you can call `cast_base(params)`
+to automatically apply changeset from base schema.  
 This function **won't** be available if base schema doesn't have any `changeset/2` function
 
-Some may find it useful to insert diverged schema directly from the base (by specifying discriminator value in changeset params).  
+Some may find it useful to insert diverged schema directly from the base (by specifying discriminator value in changeset
+params).  
 This is doable by calling `diverged_changeset` function on base schema.
 
 ## Examples

@@ -8,6 +8,7 @@ defmodule EctoDiscriminator.MixProject do
       elixir: "~> 1.11",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
+      description: description(),
       package: package(),
       deps: deps(),
       aliases: aliases()
@@ -41,6 +42,10 @@ defmodule EctoDiscriminator.MixProject do
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"]
     ]
+  end
+
+  defp description() do
+    "Ecto extension that adds a tiny bit of inheritance for the schemas."
   end
 
   defp package do
