@@ -10,20 +10,25 @@ defmodule EctoDiscriminator.SchemaTest do
   describe "base schema" do
     test "properly sets up schema" do
       fields = SomeTable.__schema__(:fields)
-      assert fields == [:id, :type, :title, :content, :parent_id]
+      assert MapSet.new(fields) == MapSet.new([:id, :type, :title, :content, :parent_id])
     end
 
     test "provides access to common schema fields definitions" do
       import SomeTable
-      {:__block__, _, common_fields} = Macro.expand_once(quote(do: common_fields([])), __ENV__)
+
+      [{:__block__, _, common_fields}, _discriminator_def] =
+        Macro.expand_once(quote(do: common_fields([])), __ENV__)
 
       assert [
-               # macro should set default value for discriminator column to the value of callers module
-               {:field, _, [:type, _, [default: __MODULE__]]},
                {:field, _, [:title, :string]},
                {:field, _, [:content, :map]},
                {:belongs_to, _, [:parent, _]}
              ] = common_fields
+    end
+
+    test "doesn't set default value for discriminator" do
+      struct = %SomeTable{}
+      assert struct.type == nil
     end
 
     test "provides access to discriminator name" do
@@ -53,6 +58,13 @@ defmodule EctoDiscriminator.SchemaTest do
                  type: SomeTable.Foo
                })
                |> Repo.insert()
+
+      assert {:error, %{errors: [content: {"can't be blank", [validation: :required]}]}} =
+               SomeTable.diverged_changeset(%SomeTable.Foo{}, %{
+                 title: "Foo one",
+                 source: "asdf"
+               })
+               |> Repo.insert()
     end
   end
 
@@ -64,7 +76,12 @@ defmodule EctoDiscriminator.SchemaTest do
 
     test "has common fields injected" do
       fields = SomeTable.Foo.__schema__(:fields)
-      assert fields == [:id, :source, :content, :type, :title, :parent_id]
+      assert MapSet.new(fields) == MapSet.new([:id, :source, :content, :type, :title, :parent_id])
+    end
+
+    test "sets default value for discriminator" do
+      struct = %SomeTable.Foo{}
+      assert struct.type == SomeTable.Foo
     end
 
     test "inserts different schema" do
