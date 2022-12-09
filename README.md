@@ -17,7 +17,7 @@ You can also add any extra fields that will exist only in one struct (for exampl
 It may seem not reasonable to introduce concept of inheritance to the Ecto (and Elixir itself), but for some cases I
 think it's better to have it instead of repeated code.  
 Inheritance is natural for our environment, everything comes from some more general being and shares its capabilities.  
-Without it, you're left just with pattern matching, and it's enough for most cases, but not all of them.  
+Without it, you're left just with pattern matching, and it's enough for most cases, but not all of them.
 
 Quick example:  
 mug and cup, they look almost the same, but cup can have reference to a saucer.  
@@ -35,7 +35,7 @@ list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:ecto_discriminator, "~> 0.1.0"}
+    {:ecto_discriminator, "~> 0.2.0"}
   ]
 end
 ```
@@ -54,10 +54,17 @@ defmodule EctoDiscriminator.SomeTable do
 +   use EctoDiscriminator.Schema
 ```
 
-2. Define discriminator column name
+2. Define discriminator column
 
 ```diff
-+   @discriminator :type
+    schema "some_table" do
++   field :type, EctoDiscriminator.DiscriminatorType
+```
+
+You can also mark the primary key as a discriminator
+
+```diff
++   @primary_key {:type, EctoDiscriminator.DiscriminatorType, []}
     schema "some_table" do
 ```
 
@@ -88,3 +95,8 @@ This is doable by calling `diverged_changeset` function on base schema.
 ## Examples
 
 You can see example setup in `test` directory.
+
+## Known limitations
+
+- Custom field types must use full module names (aliases won't work)
+- Field parameters can't contain Module attributes readers (`@foo`)
