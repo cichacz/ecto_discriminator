@@ -4,6 +4,7 @@ defmodule EctoDiscriminator.SchemaTest do
   alias EctoDiscriminator.Schema
 
   alias EctoDiscriminator.SomeTable
+  alias EctoDiscriminator.SomeTablePk
 
   doctest Schema
 
@@ -14,14 +15,12 @@ defmodule EctoDiscriminator.SchemaTest do
     end
 
     test "provides access to common schema fields definitions" do
-      import SomeTable
-
-      [{:__block__, _, common_fields}, _discriminator_def] =
-        Macro.expand_once(quote(do: common_fields([])), __ENV__)
+      {:__block__, _, common_fields} = SomeTable.__schema__(:fields_def)
 
       assert [
                {:field, _, [:title, :string]},
                {:field, _, [:content, :map]},
+               {:field, _, [:type, _]},
                {:belongs_to, _, [:parent, _]}
              ] = common_fields
     end
@@ -50,6 +49,20 @@ defmodule EctoDiscriminator.SchemaTest do
       assert length(rows) == 1
     end
 
+    test "can insert diverged schemas with primary key discriminator" do
+      SomeTablePk.diverged_changeset(%SomeTablePk{}, %{
+        title: "Foo one",
+        source: "asdf",
+        type: SomeTable.FooPk,
+        content: %{length: 7}
+      })
+      |> Repo.insert!()
+
+      rows = SomeTable.FooPk |> Repo.all()
+
+      assert length(rows) == 1
+    end
+
     test "validates diverged schemas" do
       assert {:error, %{errors: [content: {"can't be blank", [validation: :required]}]}} =
                SomeTable.diverged_changeset(%SomeTable{}, %{
@@ -69,9 +82,34 @@ defmodule EctoDiscriminator.SchemaTest do
   end
 
   describe "diverged schema" do
-    test "defines common fields macro" do
-      available_macros = SomeTable.Foo.__info__(:macros)
-      assert [{:common_fields, 1}] == available_macros
+    test "provides access to common schema fields definitions" do
+      [{:__block__, _, common_fields}, {:__block__, _, parent_common_fields}] =
+        SomeTable.Foo.__schema__(:fields_def)
+
+      content_module =
+        EctoDiscriminator.SomeTable.FooContent
+        |> Module.split()
+        |> Enum.map(&String.to_atom/1)
+
+      assert [
+               {:field, _, [:source, :string]},
+               {:embeds_one, _, [:content, {_, _, ^content_module}]},
+               {:has_one, _, [:sibling, _, _]},
+               {:has_one, _, [:child, _, _]}
+             ] = common_fields
+
+      assert [
+               {:field, _, [:title, :string]},
+               # nil-ified :content because we override it in Foo
+               nil,
+               {:field, _,
+                [
+                  :type,
+                  {:__aliases__, _, [:EctoDiscriminator, :DiscriminatorType]},
+                  [default: SomeTable.Foo]
+                ]},
+               {:belongs_to, _, [:parent, _]}
+             ] = parent_common_fields
     end
 
     test "has common fields injected" do

@@ -1,4 +1,8 @@
-defmodule EctoDiscriminator.AtomType do
+defmodule EctoDiscriminator.DiscriminatorType do
+  @moduledoc """
+  Type used by the discriminator field to be able to dump module names to the database
+  """
+
   use Ecto.Type
   def type, do: :string
   def cast(value), do: {:ok, value}

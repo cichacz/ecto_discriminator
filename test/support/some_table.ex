@@ -3,11 +3,10 @@ defmodule EctoDiscriminator.SomeTable do
 
   import Ecto.Changeset
 
-  @discriminator :type
-
   schema "some_table" do
     field :title, :string
     field :content, :map
+    field :type, EctoDiscriminator.DiscriminatorType
     belongs_to :parent, EctoDiscriminator.SomeTable.Foo
   end
 
