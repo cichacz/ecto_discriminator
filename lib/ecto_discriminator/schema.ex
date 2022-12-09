@@ -158,14 +158,10 @@ defmodule EctoDiscriminator.Schema do
       defp cast_diverged(%_{} = data, params) do
         discriminator_struct = Map.get(params, unquote(discriminator_name), data.__struct__)
 
-        if function_exported?(discriminator_struct, :changeset, 2) do
-          # just call changeset from the derived schema and hope it calls cast_base to pull fields from the base schema
-          data
-          |> Map.put(:__struct__, discriminator_struct)
-          |> discriminator_struct.changeset(params)
-        else
-          data
-        end
+        # just call changeset from the derived schema and hope it calls cast_base to pull fields from the base schema
+        data
+        |> Map.put(:__struct__, discriminator_struct)
+        |> discriminator_struct.changeset(params)
       end
     end
   end
