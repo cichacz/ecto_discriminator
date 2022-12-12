@@ -132,6 +132,9 @@ defmodule EctoDiscriminator.SchemaTest do
       SomeTable.Bar.changeset(%SomeTable.Bar{}, %{title: "Bar two"})
       |> Repo.insert!()
 
+      SomeTable.FooPk.changeset(%SomeTable.FooPk{}, %{title: :b})
+      |> Repo.insert!()
+
       content = %{name: "asdf"}
 
       SomeTable.Bar.changeset(%SomeTable.Bar{}, %{title: "Bar two", content: content})

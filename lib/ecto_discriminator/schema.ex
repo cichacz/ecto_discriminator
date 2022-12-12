@@ -20,8 +20,9 @@ defmodule EctoDiscriminator.Schema do
   # for diverged schema when source is name of the module from which we inherit fields
   defmacro schema(source, do: fields) do
     source_module = Macro.expand(source, __CALLER__)
+    caller_module = __CALLER__.module
     base_module = get_base_module(source_module)
-    common_fields = get_common_fields(source_module, __CALLER__.module, fields)
+    common_fields = get_common_fields(source_module, caller_module, fields)
     fields = [fields, common_fields]
 
     # primary key must be explicitly set
@@ -219,11 +220,22 @@ defmodule EctoDiscriminator.Schema do
           other
       end)
 
+    discriminator_type = @discriminator_type
+
     quote do
       # expose fields from source schema so diverged schemas can add them to their schemas
       # we need this because when fields go through ecto schema there is no simple way of retrieving their full definition
       def __schema__(:fields_def), do: unquote(Macro.escape(fields))
-      def __schema__(:primary_key_def), do: @primary_key
+
+      def __schema__(:primary_key_def) do
+        case @primary_key do
+          {name, unquote(discriminator_type), opts} ->
+            {name, unquote(discriminator_type), [{:default, __MODULE__} | opts]}
+
+          pk ->
+            pk
+        end
+      end
     end
   end
 
