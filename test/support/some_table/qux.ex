@@ -3,7 +3,10 @@ defmodule EctoDiscriminator.SomeTable.Qux do
 
   import Ecto.Changeset
 
-  schema EctoDiscriminator.SomeTable.Baz do
+  alias EctoDiscriminator.SomeTable.Baz
+
+  # make sure base schemas can be referenced using alias
+  schema Baz do
     field :is_last, :boolean, virtual: true
   end
 

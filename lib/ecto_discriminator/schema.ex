@@ -12,14 +12,14 @@ defmodule EctoDiscriminator.Schema do
   defmacro schema(source, do: fields) when is_binary(source) do
     schema = call_ecto_schema(source, [fields])
     helpers = define_helpers(fields)
-    inheritance_helpers = inheritance_helpers(fields)
+    inheritance_helpers = inheritance_helpers(fields, __CALLER__)
 
     [schema, helpers, inheritance_helpers]
   end
 
   # for diverged schema when source is name of the module from which we inherit fields
   defmacro schema(source, do: fields) do
-    source_module = Macro.expand(source, __ENV__)
+    source_module = Macro.expand(source, __CALLER__)
     base_module = get_base_module(source_module)
     common_fields = get_common_fields(source_module, __CALLER__.module, fields)
     fields = [fields, common_fields]
@@ -39,7 +39,7 @@ defmodule EctoDiscriminator.Schema do
       |> inject_where(base_module)
 
     helpers = define_diverged_helpers(source_module, base_module)
-    inheritance_helpers = inheritance_helpers(fields)
+    inheritance_helpers = inheritance_helpers(fields, __CALLER__)
 
     [primary_key, schema, helpers, inheritance_helpers]
   end
@@ -207,7 +207,18 @@ defmodule EctoDiscriminator.Schema do
     [schema_helpers, changeset_helpers]
   end
 
-  defp inheritance_helpers(fields) do
+  defp inheritance_helpers(fields, caller_context) do
+    # resolve aliases from module that defines those helpers
+
+    fields =
+      Macro.prewalk(fields, fn
+        {:__aliases__, meta, _} = ast ->
+          {:__aliases__, meta, Macro.expand(ast, caller_context) |> module_to_atoms()}
+
+        other ->
+          other
+      end)
+
     quote do
       # expose fields from source schema so diverged schemas can add them to their schemas
       # we need this because when fields go through ecto schema there is no simple way of retrieving their full definition
@@ -250,5 +261,11 @@ defmodule EctoDiscriminator.Schema do
       other ->
         other
     end)
+  end
+
+  defp module_to_atoms(module) do
+    module
+    |> Module.split()
+    |> Enum.map(&String.to_atom/1)
   end
 end

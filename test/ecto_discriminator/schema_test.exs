@@ -51,7 +51,7 @@ defmodule EctoDiscriminator.SchemaTest do
 
     test "can insert diverged schemas with primary key discriminator" do
       SomeTablePk.diverged_changeset(%SomeTablePk{}, %{
-        title: "Foo one",
+        title: :b,
         source: "asdf",
         type: SomeTable.FooPk,
         content: %{length: 7}

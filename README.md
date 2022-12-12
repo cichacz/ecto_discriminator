@@ -98,5 +98,4 @@ You can see example setup in `test` directory.
 
 ## Known limitations
 
-- Custom field types must use full module names (aliases won't work)
 - Field parameters can't contain Module attributes readers (`@foo`)
