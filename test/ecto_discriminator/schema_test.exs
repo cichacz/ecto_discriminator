@@ -128,12 +128,24 @@ defmodule EctoDiscriminator.SchemaTest do
       SomeTable.Foo.changeset(%SomeTable.Foo{}, %{title: "Foo one", content: content})
       |> Repo.insert!()
 
+      rows = SomeTable.Foo |> Repo.all()
+
+      assert length(rows) == 1
+
       # we allow for empty content in Bar
       SomeTable.Bar.changeset(%SomeTable.Bar{}, %{title: "Bar two"})
       |> Repo.insert!()
 
+      rows = SomeTable.Bar |> Repo.all()
+
+      assert length(rows) == 1
+
       SomeTable.FooPk.changeset(%SomeTable.FooPk{}, %{title: :b})
       |> Repo.insert!()
+
+      rows = SomeTable.FooPk |> Repo.all()
+
+      assert length(rows) == 1
 
       content = %{name: "asdf"}
 

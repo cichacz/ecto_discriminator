@@ -29,7 +29,7 @@ defmodule EctoDiscriminator.Schema do
     primary_key =
       quote do
         if is_nil(@primary_key) do
-          @primary_key apply(unquote(source_module), :__schema__, [:primary_key_def])
+          @primary_key apply(unquote(source_module), :__schema__, [:primary_key_def, __MODULE__])
         end
       end
 
@@ -227,10 +227,10 @@ defmodule EctoDiscriminator.Schema do
       # we need this because when fields go through ecto schema there is no simple way of retrieving their full definition
       def __schema__(:fields_def), do: unquote(Macro.escape(fields))
 
-      def __schema__(:primary_key_def) do
+      def __schema__(:primary_key_def, default) do
         case @primary_key do
           {name, unquote(discriminator_type), opts} ->
-            {name, unquote(discriminator_type), [{:default, __MODULE__} | opts]}
+            {name, unquote(discriminator_type), [{:default, default} | opts]}
 
           pk ->
             pk
