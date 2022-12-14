@@ -14,7 +14,7 @@ defmodule EctoDiscriminator.Schema do
         {:__aliases__, meta, _} = ast ->
           {:__aliases__, meta, Macro.expand(ast, env) |> module_to_atoms()}
 
-        # match on meta to make sure it has no context
+        # resolve module attributes before diverged schema calls for fields_def
         {:@, _, [{var_name, _, _}]} ->
           Module.get_attribute(env.module, var_name)
 
