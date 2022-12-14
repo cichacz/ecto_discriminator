@@ -7,26 +7,7 @@ defmodule EctoDiscriminator.Schema do
   defmacro __using__(_), do: set_up_schema()
 
   defmacro __before_compile__(env) do
-    fields_def =
-      Module.get_attribute(env.module, :fields_def)
-      |> Macro.prewalk(fn
-        # resolve aliases from module that defines those helpers
-        {:__aliases__, meta, _} = ast ->
-          {:__aliases__, meta, Macro.expand(ast, env) |> module_to_atoms()}
-
-        # resolve module attributes before diverged schema calls for fields_def
-        {:@, _, [{var_name, _, _}]} ->
-          Module.get_attribute(env.module, var_name)
-
-        other ->
-          other
-      end)
-
-    quote do
-      # expose fields from source schema so diverged schemas can add them to their schemas
-      # we need this because when fields go through ecto schema there is no simple way of retrieving their full definition
-      def __schema__(:fields_def), do: unquote(Macro.escape(fields_def))
-    end
+    inheritance_helpers(env)
   end
 
   # for base schema, when source is actually table name
@@ -35,9 +16,11 @@ defmodule EctoDiscriminator.Schema do
   defmacro schema(source, do: fields) when is_binary(source) do
     schema = call_ecto_schema(source, [fields])
     helpers = define_helpers(fields)
-    inheritance_helpers = inheritance_helpers(fields, __CALLER__)
 
-    [schema, helpers, inheritance_helpers]
+    # store fields in module attribute to retrieve them in before_compile handler
+    Module.put_attribute(__CALLER__.module, :fields_def, fields)
+
+    [schema, helpers]
   end
 
   # for diverged schema when source is name of the module from which we inherit fields
@@ -48,7 +31,7 @@ defmodule EctoDiscriminator.Schema do
     common_fields = get_common_fields(source_module, caller_module, fields)
     fields = [fields, common_fields]
 
-    # primary key must be explicitly set
+    # primary key must be explicitly set before ecto schema macro kicks off
     primary_key =
       quote do
         if is_nil(@primary_key) do
@@ -63,9 +46,10 @@ defmodule EctoDiscriminator.Schema do
       |> inject_where(base_module)
 
     helpers = define_diverged_helpers(source_module, base_module)
-    inheritance_helpers = inheritance_helpers(fields, __CALLER__)
 
-    [primary_key, schema, helpers, inheritance_helpers]
+    Module.put_attribute(caller_module, :fields_def, fields)
+
+    [primary_key, schema, helpers]
   end
 
   def lookup_discriminator_field_name(fields, primary_key) do
@@ -233,21 +217,47 @@ defmodule EctoDiscriminator.Schema do
     [schema_helpers, changeset_helpers]
   end
 
-  defp inheritance_helpers(fields, caller_context) do
-    discriminator_type = @discriminator_type
-    Module.put_attribute(caller_context.module, :fields_def, fields)
+  defp inheritance_helpers(env) do
+    fields_def =
+      Module.get_attribute(env.module, :fields_def)
+      |> Macro.prewalk(fn
+        # resolve aliases from module that defines those helpers
+        {:__aliases__, meta, _} = ast ->
+          {:__aliases__, meta, Macro.expand(ast, env) |> module_to_atoms()}
 
-    quote do
-      def __schema__(:primary_key_def, default) do
-        case @primary_key do
-          {name, unquote(discriminator_type), opts} ->
-            {name, unquote(discriminator_type), [{:default, default} | opts]}
+        # resolve module attributes before diverged schema calls for fields_def
+        {:@, _, [{var_name, _, _}]} ->
+          Module.get_attribute(env.module, var_name)
 
-          pk ->
-            pk
-        end
+        other ->
+          other
+      end)
+
+    primary_key =
+      case Module.get_attribute(env.module, :primary_key) do
+        {name, @discriminator_type, opts} ->
+          discriminator_type = @discriminator_type
+
+          quote do
+            def __schema__(:primary_key_def, default) do
+              {unquote(name), unquote(discriminator_type), [{:default, default} | unquote(opts)]}
+            end
+          end
+
+        pk ->
+          quote do
+            def __schema__(:primary_key_def, _), do: unquote(Macro.escape(pk))
+          end
       end
-    end
+
+    fields_def =
+      quote do
+        # expose fields from source schema so diverged schemas can add them to their schemas
+        # we need this because when fields go through ecto schema there is no simple way of retrieving their full definition
+        def __schema__(:fields_def), do: unquote(Macro.escape(fields_def))
+      end
+
+    [primary_key, fields_def]
   end
 
   # adds default where clause to the query to reduce results to single type
