@@ -98,4 +98,5 @@ You can see example setup in `test` directory.
 
 ## Known limitations
 
-- Field parameters can't contain Module attributes readers (`@foo`)
+- It's not possible to obtain correct mapping with something like `Repo.all(BaseSchema)`. You have to execute separate
+  query for each diverged type and then concat results.

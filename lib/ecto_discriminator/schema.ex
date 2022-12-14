@@ -6,6 +6,29 @@ defmodule EctoDiscriminator.Schema do
 
   defmacro __using__(_), do: set_up_schema()
 
+  defmacro __before_compile__(env) do
+    fields_def =
+      Module.get_attribute(env.module, :fields_def)
+      |> Macro.prewalk(fn
+        # resolve aliases from module that defines those helpers
+        {:__aliases__, meta, _} = ast ->
+          {:__aliases__, meta, Macro.expand(ast, env) |> module_to_atoms()}
+
+        # match on meta to make sure it has no context
+        {:@, _, [{var_name, _, _}]} ->
+          Module.get_attribute(env.module, var_name)
+
+        other ->
+          other
+      end)
+
+    quote do
+      # expose fields from source schema so diverged schemas can add them to their schemas
+      # we need this because when fields go through ecto schema there is no simple way of retrieving their full definition
+      def __schema__(:fields_def), do: unquote(Macro.escape(fields_def))
+    end
+  end
+
   # for base schema, when source is actually table name
   # here we only store some module attributes, and schema is actually injected in __before_compile__
   # this makes it possible to read @discriminator attribute of schema module and add it to Ecto schema
@@ -78,6 +101,8 @@ defmodule EctoDiscriminator.Schema do
       # replace original macro
       import Ecto.Schema, except: [schema: 2]
       import EctoDiscriminator.Schema, only: [schema: 2]
+
+      @before_compile EctoDiscriminator.Schema
     end
   end
 
@@ -209,24 +234,10 @@ defmodule EctoDiscriminator.Schema do
   end
 
   defp inheritance_helpers(fields, caller_context) do
-    # resolve aliases from module that defines those helpers
-
-    fields =
-      Macro.prewalk(fields, fn
-        {:__aliases__, meta, _} = ast ->
-          {:__aliases__, meta, Macro.expand(ast, caller_context) |> module_to_atoms()}
-
-        other ->
-          other
-      end)
-
     discriminator_type = @discriminator_type
+    Module.put_attribute(caller_context.module, :fields_def, fields)
 
     quote do
-      # expose fields from source schema so diverged schemas can add them to their schemas
-      # we need this because when fields go through ecto schema there is no simple way of retrieving their full definition
-      def __schema__(:fields_def), do: unquote(Macro.escape(fields))
-
       def __schema__(:primary_key_def, default) do
         case @primary_key do
           {name, unquote(discriminator_type), opts} ->

@@ -5,10 +5,12 @@ defmodule EctoDiscriminator.SomeTablePk do
 
   alias Ecto.Enum
 
+  @values [:a, :b, :c]
+
   @primary_key {:type, EctoDiscriminator.DiscriminatorType, []}
   schema "some_table_pk" do
-    # make sure field types can contain aliases
-    field :title, Enum, values: [:a, :b, :c]
+    # make sure field types can contain aliases and module attributes
+    field :title, Enum, values: @values
   end
 
   def changeset(%__MODULE__{} = struct, params \\ %{}) do
