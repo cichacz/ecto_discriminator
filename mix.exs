@@ -4,7 +4,7 @@ defmodule EctoDiscriminator.MixProject do
   def project do
     [
       app: :ecto_discriminator,
-      version: "0.2.2",
+      version: "0.2.3",
       elixir: "~> 1.11",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
