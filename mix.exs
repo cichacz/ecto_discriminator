@@ -1,17 +1,21 @@
 defmodule EctoDiscriminator.MixProject do
   use Mix.Project
 
+  @source_url "https://github.com/cichacz/ecto_discriminator"
+  @version "0.2.4"
+
   def project do
     [
       app: :ecto_discriminator,
-      version: "0.2.3",
+      version: @version,
       elixir: "~> 1.11",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
       description: description(),
       package: package(),
       deps: deps(),
-      aliases: aliases()
+      aliases: aliases(),
+      docs: docs()
     ]
   end
 
@@ -59,6 +63,18 @@ defmodule EctoDiscriminator.MixProject do
         "mix.exs",
         "README.md"
       ]
+    ]
+  end
+
+  defp docs do
+    [
+      main: "readme",
+      extras: [
+        "README.md",
+#        "CHANGELOG.md"
+      ],
+      source_ref: "v#{@version}",
+      source_url: @source_url
     ]
   end
 end

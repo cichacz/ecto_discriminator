@@ -35,6 +35,15 @@ defmodule EctoDiscriminator.SchemaTest do
       assert :type == discriminator_name
     end
 
+    test "can create diverged changesets" do
+      SomeTable.diverged_changeset(%SomeTable.Bar{})
+      |> Repo.insert!()
+
+      rows = SomeTable.Bar |> Repo.all()
+
+      assert length(rows) == 1
+    end
+
     test "can insert diverged schemas" do
       SomeTable.diverged_changeset(%SomeTable{}, %{
         title: "Foo one",
@@ -285,6 +294,12 @@ defmodule EctoDiscriminator.SchemaTest do
       assert [qux_from_repo] = SomeTable.Qux |> preload(:parent) |> Repo.all()
       # make sure it was properly stored and fetched.
       assert qux_from_repo.is_special === false
+    end
+
+    test "can override schema protocol" do
+      assert_raise RuntimeError, fn ->
+        EctoDiscriminator.DiscriminatorSchema.diverged_changeset(%SomeTable.FooPk{})
+      end
     end
   end
 end

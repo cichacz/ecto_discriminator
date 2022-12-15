@@ -29,8 +29,7 @@ So yea, this library introduces a concept of inheritance to your code.
 
 ## Installation
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed by adding `ecto_discriminator` to your
-list of dependencies in `mix.exs`:
+The package can be installed by adding `ecto_discriminator` to your list of dependencies in `mix.exs`:
 
 ```elixir
 def deps do
@@ -94,7 +93,10 @@ This is doable by calling `diverged_changeset` function on base schema.
 
 ## Examples
 
-You can see example setup in `test` directory.
+Refer to the [documentation](https://hexdocs.pm/ecto_discriminator/EctoDiscriminator.Schema.html) of modules for some
+examples.
+
+You can also browse `test` directory for some example setup.
 
 ## Known limitations
 
