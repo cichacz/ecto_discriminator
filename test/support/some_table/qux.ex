@@ -1,8 +1,6 @@
 defmodule EctoDiscriminator.SomeTable.Qux do
   use EctoDiscriminator.Schema
 
-  import Ecto.Changeset
-
   alias EctoDiscriminator.SomeTable.Baz
 
   # make sure base schemas can be referenced using alias

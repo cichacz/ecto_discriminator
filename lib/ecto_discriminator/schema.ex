@@ -225,7 +225,7 @@ defmodule EctoDiscriminator.Schema do
         defp cast_base(%Ecto.Changeset{} = changeset, params) do
           changeset.data
           |> cast_base(params)
-          |> merge(changeset)
+          |> Ecto.Changeset.merge(changeset)
         end
 
         defp cast_base(%_{} = data, params),
