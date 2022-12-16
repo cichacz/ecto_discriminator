@@ -76,8 +76,8 @@ defimpl EctoDiscriminator.DiscriminatorSchema, for: Any do
     discriminator_struct = params[discriminator] || params[to_string(discriminator)] || struct
 
     # just call changeset from the derived schema and hope it calls cast_base to pull fields from the base schema
-    data
-    |> Map.put(:__struct__, discriminator_struct)
+    discriminator_struct
+    |> struct(Map.from_struct(data))
     |> discriminator_struct.changeset(params)
   end
 
