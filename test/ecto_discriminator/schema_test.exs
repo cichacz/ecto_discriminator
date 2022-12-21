@@ -84,6 +84,32 @@ defmodule EctoDiscriminator.SchemaTest do
       assert length(rows) == 1
     end
 
+    test "allows updating changesets" do
+      foo_changes = SomeTable.diverged_changeset(%SomeTable.Foo{})
+      refute foo_changes.valid?
+
+      foo_changes = SomeTable.diverged_changeset(foo_changes, %{source: "abc"})
+      assert %{source: "abc", parent: nil} == foo_changes.changes
+      refute foo_changes.valid?
+
+      foo_changes = SomeTable.diverged_changeset(foo_changes, %{source: "def"})
+      assert %{source: "def", parent: nil} == foo_changes.changes
+      refute foo_changes.valid?
+
+      foo_changes =
+        SomeTable.diverged_changeset(%{foo_changes | valid?: true, errors: []}, %{
+          content: %{length: 7}
+        })
+
+      assert %{
+               source: "def",
+               content: %Ecto.Changeset{data: %EctoDiscriminator.SomeTable.FooContent{}},
+               parent: nil
+             } = foo_changes.changes
+
+      assert foo_changes.valid?
+    end
+
     test "validates diverged schemas" do
       assert {:error, %{errors: [content: {"can't be blank", [validation: :required]}]}} =
                SomeTable.diverged_changeset(%SomeTable{}, %{
@@ -221,6 +247,29 @@ defmodule EctoDiscriminator.SchemaTest do
       assert %{sibling: ^bar, child: ^child_preloaded} = foo_preloaded
       assert %{sibling: ^foo} = bar_preloaded
       assert foo_preloaded.child.parent.sibling == bar
+    end
+
+    test "allows updating changesets" do
+      foo_changes = SomeTable.Foo.changeset(%SomeTable.Foo{})
+      refute foo_changes.valid?
+
+      foo_changes = SomeTable.Foo.changeset(foo_changes, %{source: "abc"})
+      assert %{source: "abc", parent: nil} == foo_changes.changes
+      refute foo_changes.valid?
+
+      foo_changes = SomeTable.Foo.changeset(foo_changes, %{source: "def"})
+      assert %{source: "def", parent: nil} == foo_changes.changes
+      refute foo_changes.valid?
+
+      foo_changes = SomeTable.Foo.changeset(foo_changes, %{content: %{length: 7}})
+
+      assert %{
+               source: "def",
+               content: %Ecto.Changeset{data: %EctoDiscriminator.SomeTable.FooContent{}},
+               parent: nil
+             } = foo_changes.changes
+
+      assert foo_changes.valid?
     end
 
     test "handles complex queries" do

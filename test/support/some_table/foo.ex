@@ -12,8 +12,16 @@ defmodule EctoDiscriminator.SomeTable.Foo do
 
   def changeset(struct, params \\ %{}) do
     struct
+    # we need to clean the validation status before proceeding
+    |> clear_validation_state()
     |> cast_base(params)
     |> cast(params, [:source])
     |> cast_embed(:content, required: true)
   end
+
+  defp clear_validation_state(%Ecto.Changeset{} = changeset) do
+    %{changeset | valid?: true, errors: []}
+  end
+
+  defp clear_validation_state(other), do: other
 end
