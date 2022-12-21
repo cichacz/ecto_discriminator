@@ -71,33 +71,58 @@ defimpl EctoDiscriminator.DiscriminatorSchema, for: Any do
   import Ecto.Changeset
 
   def diverged_changeset(data, params) do
-    struct = data.__struct__
-    discriminator = struct.__schema__(:discriminator)
-    discriminator_struct = params[discriminator] || params[to_string(discriminator)] || struct
-
-    # just call changeset from the derived schema and hope it calls cast_base to pull fields from the base schema
-    discriminator_struct
-    |> struct(Map.from_struct(data))
-    |> discriminator_struct.changeset(params)
+    data
+    |> change()
+    |> EctoDiscriminator.DiscriminatorSchema.diverged_changeset(params)
   end
 
   def cast_base(data, params, source) do
+    data
+    |> change()
+    |> EctoDiscriminator.DiscriminatorSchema.cast_base(params, source)
+  end
+end
+
+defimpl EctoDiscriminator.DiscriminatorSchema, for: Ecto.Changeset do
+  import Ecto.Changeset
+
+  def diverged_changeset(%{data: data} = changeset, params) do
+    struct = data.__struct__
+    discriminator = struct.__schema__(:discriminator)
+    diverged_schema = params[discriminator] || params[to_string(discriminator)] || struct
+
+    data = struct(diverged_schema, Map.from_struct(data))
+
+    # just call changeset from the derived schema and hope it calls cast_base to pull fields from the base schema
+    diverged_changeset = diverged_schema.changeset(data, params)
+
+    changeset
+    # replace data & types with diverged schema to be able to continue in original changeset
+    |> Map.put(:data, data)
+    |> Map.put(:types, diverged_schema.__changeset__())
+    |> Ecto.Changeset.merge(diverged_changeset)
+  end
+
+  def cast_base(%{data: data} = changeset, params, source) do
     struct = data.__struct__
     discriminator = struct.__schema__(:discriminator)
 
-    # we have to change type of our struct to call changeset of source schema
-    data
-    |> Map.put(:__struct__, source)
-    |> source.changeset(params)
-    # replace data & types with current schema to be able to continue in original changeset
-    |> Map.put(:data, data)
-    |> Map.put(:types, struct.__changeset__())
-    # drop from changes keys that are overwritten in diverged schema
-    |> Map.update!(:changes, &Map.drop(&1, struct.__schema__(:unique_fields)))
-    # add discriminator field to changeset
-    |> cast(params, [discriminator])
-    |> validate_required(discriminator)
-    |> validate_change(discriminator, &validate_discriminator_value(&1, &2, source))
+    base_changeset =
+      changeset
+      |> Map.update!(:data, fn data -> Map.put(data, :__struct__, source) end)
+      |> Map.put(:types, source.__changeset__())
+      |> source.changeset(params)
+      # replace data & types with current schema to be able to continue in original changeset
+      |> Map.put(:data, data)
+      |> Map.put(:types, struct.__changeset__())
+      # drop from changes keys that are overwritten in diverged schema
+      |> Map.update!(:changes, &Map.drop(&1, struct.__schema__(:unique_fields)))
+      # add discriminator field to changeset
+      |> cast(params, [discriminator])
+      |> validate_required(discriminator)
+      |> validate_change(discriminator, &validate_discriminator_value(&1, &2, source))
+
+    Ecto.Changeset.merge(changeset, base_changeset)
   end
 
   defp validate_discriminator_value(discriminator, module_name, source) do

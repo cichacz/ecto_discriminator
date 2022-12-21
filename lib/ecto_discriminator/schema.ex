@@ -222,12 +222,7 @@ defmodule EctoDiscriminator.Schema do
   defp diverged_helpers(source) do
     if function_exported?(source, :changeset, 2) do
       quote bind_quoted: [source: source] do
-        defp cast_base(%Ecto.Changeset{} = changeset, params) do
-          base_changeset = cast_base(changeset.data, params)
-          Ecto.Changeset.merge(changeset, base_changeset)
-        end
-
-        defp cast_base(%_{} = data, params),
+        defp cast_base(data, params),
           do: EctoDiscriminator.DiscriminatorSchema.cast_base(data, params, unquote(source))
       end
     end
@@ -264,14 +259,7 @@ defmodule EctoDiscriminator.Schema do
       def __schema__(:discriminator), do: unquote(discriminator_name)
 
       # add special changeset that will make possible to produce diverged schema changesets using base module name
-      def diverged_changeset(struct, params \\ %{})
-
-      def diverged_changeset(%Ecto.Changeset{} = changeset, params) do
-        base_changeset = diverged_changeset(changeset.data, params)
-        Ecto.Changeset.merge(changeset, base_changeset)
-      end
-
-      def diverged_changeset(struct, params),
+      def diverged_changeset(struct, params \\ %{}),
         do: EctoDiscriminator.DiscriminatorSchema.diverged_changeset(struct, params)
     end
   end

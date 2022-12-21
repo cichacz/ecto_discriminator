@@ -10,7 +10,7 @@ defmodule EctoDiscriminator.SomeTable do
     belongs_to :parent, EctoDiscriminator.SomeTable.Foo
   end
 
-  def changeset(%__MODULE__{} = struct, params \\ %{}) do
+  def changeset(struct, params \\ %{}) do
     struct
     |> cast(params, [:title, :content])
     |> put_assoc(:parent, params[:parent])
