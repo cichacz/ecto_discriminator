@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.2.6
+
+* Bug fix
+    * Changed way how `DiscriminatorSchema` is used. It should be more flexible now. Previously sometimes the changes
+      weren't properly reflected
+
 ## v0.2.5
 
 * Bug fix
