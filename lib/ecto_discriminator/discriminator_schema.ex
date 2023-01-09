@@ -89,7 +89,10 @@ defimpl EctoDiscriminator.DiscriminatorSchema, for: Ecto.Changeset do
   def diverged_changeset(%{data: data} = changeset, params) do
     struct = data.__struct__
     discriminator = struct.__schema__(:discriminator)
-    diverged_schema = params[discriminator] || params[to_string(discriminator)] || struct
+
+    diverged_schema =
+      params[discriminator] || params[to_string(discriminator)] || Map.get(data, discriminator) ||
+        struct
 
     data = struct(diverged_schema, Map.from_struct(data))
 

@@ -70,6 +70,17 @@ defmodule EctoDiscriminator.SchemaTest do
       assert length(rows) == 1
     end
 
+    test "can insert diverged schemas with key in data" do
+      SomeTable.diverged_changeset(%SomeTable{type: SomeTable.Bar}, %{
+        "title" => "Bar one"
+      })
+      |> Repo.insert!()
+
+      rows = SomeTable.Bar |> Repo.all()
+
+      assert length(rows) == 1
+    end
+
     test "can insert diverged schemas with primary key discriminator" do
       SomeTablePk.diverged_changeset(%SomeTablePk{}, %{
         title: :b,
