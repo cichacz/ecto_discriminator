@@ -5,6 +5,7 @@ defmodule EctoDiscriminator.SomeTable.FooPk do
 
   schema EctoDiscriminator.SomeTablePk do
     field :source, :string
+    field :title, Ecto.Enum, default: :b
   end
 
   def changeset(struct, params \\ %{}) do

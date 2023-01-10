@@ -141,8 +141,7 @@ defmodule EctoDiscriminator.SchemaTest do
 
   describe "diverged schema" do
     test "provides access to common schema fields definitions" do
-      [{:__block__, _, common_fields}, {:__block__, _, parent_common_fields}] =
-        SomeTable.Foo.__schema__(:fields_def)
+      fields = SomeTable.Foo.__schema__(:fields_def)
 
       content_module =
         EctoDiscriminator.SomeTable.FooContent
@@ -150,24 +149,19 @@ defmodule EctoDiscriminator.SchemaTest do
         |> Enum.map(&String.to_atom/1)
 
       assert [
-               {:field, _, [:source, :string]},
-               {:embeds_one, _, [:content, {_, _, ^content_module}]},
+               {:has_one, _, [:child, _, _]},
                {:has_one, _, [:sibling, _, _]},
-               {:has_one, _, [:child, _, _]}
-             ] = common_fields
-
-      assert [
-               {:field, _, [:title, :string]},
-               # nil-ified :content because we override it in Foo
-               nil,
+               {:field, _, [:source, :string]},
+               {:belongs_to, _, [:parent, _]},
                {:field, _,
                 [
                   :type,
                   {:__aliases__, _, [:EctoDiscriminator, :DiscriminatorType]},
                   [default: SomeTable.Foo]
                 ]},
-               {:belongs_to, _, [:parent, _]}
-             ] = parent_common_fields
+               {:embeds_one, _, [:content, {_, _, ^content_module}]},
+               {:field, _, [:title, :string]}
+             ] = fields
     end
 
     test "has common fields injected" do
@@ -223,6 +217,24 @@ defmodule EctoDiscriminator.SchemaTest do
       rows = SomeTable.Bar |> Repo.all()
 
       assert length(rows) == 2
+    end
+
+    test "merges fields options" do
+      SomeTable.FooPk.changeset(%SomeTable.FooPk{}, %{title: :a})
+      |> Repo.insert!()
+
+      [row] = SomeTable.FooPk |> Repo.all()
+
+      assert row.title == :a
+
+      Repo.delete!(row)
+
+      SomeTable.FooPk.changeset(%SomeTable.FooPk{})
+      |> Repo.insert!()
+
+      [row] = SomeTable.FooPk |> Repo.all()
+
+      assert row.title == :b
     end
 
     test "allows setting fields from base schema" do

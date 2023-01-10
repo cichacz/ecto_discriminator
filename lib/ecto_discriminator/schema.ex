@@ -113,8 +113,7 @@ defmodule EctoDiscriminator.Schema do
     source_module = Macro.expand(source, __CALLER__)
     caller_module = __CALLER__.module
     unique_fields_macro = unique_fields_macro(fields)
-    common_fields = get_common_fields(source_module, caller_module, fields)
-    fields = [fields, common_fields]
+    fields = get_merged_fields(source_module, caller_module, fields)
 
     # primary key must be explicitly set before ecto schema macro kicks off
     primary_key_def =
@@ -183,40 +182,72 @@ defmodule EctoDiscriminator.Schema do
     end
   end
 
-  defp get_common_fields(source_module, caller_module, existing_fields) do
-    {_, existing_field_names} =
-      existing_fields
-      |> Macro.prewalk([], fn
+  defp get_merged_fields(source_module, caller_module, fields) do
+    {pk_name, _, _} = pk_def = source_module.__schema__(:primary_key_def)
+
+    existing_fields_by_name =
+      source_module.__schema__(:fields_def)
+      |> Macro.prewalk(fn
+        {:field, meta, [name, {:__aliases__, _, @discriminator_type_alias} = alias | rest]} ->
+          # set default value to the module that's requesting common fields
+          rest = merge_rest_options(rest, default: caller_module)
+          {:field, meta, [name, alias | rest]}
+
+        other ->
+          other
+      end)
+      |> ast_kv_by_field_name()
+      # add primary key to existing fields for comparison
+      |> Keyword.put(pk_name, pk_def)
+
+    fields
+    |> ast_kv_by_field_name()
+    |> Keyword.merge(existing_fields_by_name, fn
+      # if there is conflict on field that is discriminator in base schema then abort
+      _, _, {_, _, [name, {:__aliases__, _, @discriminator_type_alias}, _]} ->
+        raise_for_override(name)
+
+      # the same as above but discriminator is primary key
+      _, _, {name, @discriminator_type, _} ->
+        raise_for_override(name)
+
+      _,
+      {field_type, _, [name, type | rest]} = new,
+      {field_type, meta, [name, existing_type | existing_rest]} ->
+        # otherwise in case of conflict and matching types, merge options
+        if Macro.expand(type, __ENV__) == Macro.expand(existing_type, __ENV__) do
+          rest = merge_rest_options(existing_rest, List.first(rest) || [])
+          {field_type, meta, [name, type | rest]}
+        else
+          new
+        end
+
+      # in all other cases just pick the new one
+      _, new, _old ->
+        new
+    end)
+    # drop primary key since it's not part of fields def
+    |> Keyword.delete(pk_name)
+    |> Keyword.values()
+  end
+
+  defp ast_kv_by_field_name(ast) do
+    {_, ast_kv} =
+      Macro.prewalk(ast, [], fn
         # return nil to avoid going inside this AST
-        {_, _, [name | _]}, acc when is_atom(name) -> {nil, [name | acc]}
+        {_, _, [name | _]} = ast, acc when is_atom(name) -> {nil, [{name, ast} | acc]}
         other, acc -> {other, acc}
       end)
 
-    source_module.__schema__(:fields_def)
-    |> Macro.prewalk(fn
-      {:field, meta, [name, {:__aliases__, _, @discriminator_type_alias} = alias | rest]} ->
-        if name in existing_field_names do
-          raise ArgumentError, "Field #{name} is used as the discriminator and can't be overriden"
-        end
+    ast_kv
+  end
 
-        # set default value to the module that's requesting common fields
-        rest =
-          case rest do
-            [] -> [[default: caller_module]]
-            [opts] -> [Keyword.put(opts, :default, caller_module)]
-          end
-
-        {:field, meta, [name, alias | rest]}
-
-      {_, _, [name | _]} = ast when is_atom(name) ->
-        # we want only fields that aren't overridden in current schema
-        unless name in existing_field_names do
-          ast
-        end
-
-      other ->
-        other
-    end)
+  defp merge_rest_options(rest, opts) when is_list(opts) do
+    case rest do
+      [] when opts == [] -> []
+      [] -> [opts]
+      [existing] -> [Keyword.merge(existing, opts)]
+    end
   end
 
   defp diverged_helpers(source) do
@@ -330,5 +361,9 @@ defmodule EctoDiscriminator.Schema do
     module
     |> Module.split()
     |> Enum.map(&String.to_atom/1)
+  end
+
+  defp raise_for_override(name) do
+    raise ArgumentError, "Field `#{name}` is used as the discriminator and can't be overriden"
   end
 end
