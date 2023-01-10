@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.2.7
+
+* Enhancements
+    * Discriminator field name inside `diverged_changeset/2` can be now determined from struct/changeset field
+    * Overriden fields with matching types will have their options merged
+    * Discriminator can now be a `virtual` field. This is useful when table is referenced by other table(s)
+
 ## v0.2.6
 
 * Bug fix
