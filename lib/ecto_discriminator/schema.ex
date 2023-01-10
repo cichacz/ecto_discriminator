@@ -299,36 +299,43 @@ defmodule EctoDiscriminator.Schema do
   defp inject_where(schema, source) do
     import Ecto.Query, only: [where: 2]
 
-    updated_schema_query_fn =
-      quote bind_quoted: [source: source] do
-        prefix = source.__schema__(:prefix)
-        source_table = source.__schema__(:source)
-        field = source.__schema__(:discriminator)
+    field = source.__schema__(:discriminator)
+    virtual_fields = source.__schema__(:virtual_fields)
 
-        def __schema__(:query) do
-          query = %Ecto.Query{
-            from: %Ecto.Query.FromExpr{
-              source: {unquote(source_table), __MODULE__},
-              prefix: unquote(prefix)
+    if field in virtual_fields do
+      # if discriminator is virtual field then we don't apply `where`
+      schema
+    else
+      prefix = source.__schema__(:prefix)
+      source_table = source.__schema__(:source)
+
+      updated_schema_query_fn =
+        quote bind_quoted: [prefix: prefix, source_table: source_table, field: field] do
+          def __schema__(:query) do
+            query = %Ecto.Query{
+              from: %Ecto.Query.FromExpr{
+                source: {unquote(source_table), __MODULE__},
+                prefix: unquote(prefix)
+              }
             }
-          }
 
-          where(query, [{unquote(field), unquote(__MODULE__)}])
+            where(query, [{unquote(field), unquote(__MODULE__)}])
+          end
         end
-      end
 
-    Macro.prewalk(schema, fn
-      {:schema, _, _} = ast ->
-        # do this to get AST after running schema macro
-        Macro.expand_once(ast, __ENV__)
+      Macro.prewalk(schema, fn
+        {:schema, _, _} = ast ->
+          # do this to get AST after running schema macro
+          Macro.expand_once(ast, __ENV__)
 
-      # make sure this def comes from Ecto
-      {:def, _, [{:__schema__, [context: Ecto.Schema], [:query]}, _]} ->
-        updated_schema_query_fn
+        # make sure this def comes from Ecto
+        {:def, _, [{:__schema__, [context: Ecto.Schema], [:query]}, _]} ->
+          updated_schema_query_fn
 
-      other ->
-        other
-    end)
+        other ->
+          other
+      end)
+    end
   end
 
   defp lookup_discriminator_field_name(fields, primary_key) do

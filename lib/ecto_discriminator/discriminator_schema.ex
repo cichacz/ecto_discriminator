@@ -91,7 +91,8 @@ defimpl EctoDiscriminator.DiscriminatorSchema, for: Ecto.Changeset do
     discriminator = struct.__schema__(:discriminator)
 
     diverged_schema =
-      params[discriminator] || params[to_string(discriminator)] || Map.get(data, discriminator) ||
+      params[discriminator] || params[to_string(discriminator)] ||
+        Ecto.Changeset.get_field(changeset, discriminator) ||
         struct
 
     data = struct(diverged_schema, Map.from_struct(data))

@@ -3,14 +3,16 @@ defmodule EctoDiscriminator.SomeTable.Baz do
 
   import Ecto.Changeset
 
-  schema EctoDiscriminator.SomeTable.Foo do
+  schema EctoDiscriminator.SomeTable do
     field :is_special, :boolean
+    has_one :content, EctoDiscriminator.SomeTable.BazContent, foreign_key: :bar_id
   end
 
   def changeset(struct, params \\ %{}) do
     struct
     |> cast_base(params)
     |> cast(params, [:is_special])
+    |> cast_assoc(:content)
     |> validate_required([:is_special])
   end
 end

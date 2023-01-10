@@ -1,12 +1,13 @@
 defmodule EctoDiscriminator.SomeTable.BarContent do
-  use Ecto.Schema
+  use EctoDiscriminator.Schema
 
   import Ecto.Changeset
 
-  @primary_key false
-  embedded_schema do
+  schema "bar_content" do
     field :name, :string
     field :status, :integer
+    field :type, EctoDiscriminator.DiscriminatorType, virtual: true
+    belongs_to :bar, EctoDiscriminator.SomeTable.Bar
   end
 
   def changeset(struct, params \\ %{}) do

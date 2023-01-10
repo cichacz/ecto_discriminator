@@ -335,8 +335,8 @@ defmodule EctoDiscriminator.SchemaTest do
       changeset =
         SomeTable.Qux.changeset(%SomeTable.Qux{}, %{
           title: "Qux",
-          is_special: false,
-          is_qux: true
+          is_special: false
+          # should fail due to missing content
         })
 
       refute changeset.valid?
@@ -346,26 +346,44 @@ defmodule EctoDiscriminator.SchemaTest do
       SomeTable.Baz.changeset(%SomeTable.Baz{}, %{
         title: "Baz",
         source: "bar",
-        content: %{length: 3},
+        content: %{name: "avc", length: 3, baz: true},
         is_special: true
       })
       |> Repo.insert!()
 
-      assert [baz_from_repo] = SomeTable.Baz |> preload(:parent) |> Repo.all()
+      assert [baz_from_repo] = SomeTable.Baz |> Repo.all()
       assert baz_from_repo.is_special == true
 
-      SomeTable.Qux.changeset(%SomeTable.Qux{}, %{
-        title: "Qux",
-        source: "baz",
+      SomeTable.Quux.changeset(%SomeTable.Quux{}, %{
+        title: "Quux",
+        source: "qux",
         content: %{length: 3},
         is_special: false,
-        is_qux: true
+        is_last: true
       })
       |> Repo.insert!()
 
-      assert [qux_from_repo] = SomeTable.Qux |> preload(:parent) |> Repo.all()
+      assert [quux_from_repo] = SomeTable.Quux |> Repo.all()
       # make sure it was properly stored and fetched.
-      assert qux_from_repo.is_special === false
+      assert quux_from_repo.is_special === false
+    end
+
+    test "can preload different structs" do
+      bar =
+        SomeTable.Bar.changeset(%SomeTable.Bar{}, %{content: %{name: "def"}})
+        |> Repo.insert!()
+        |> Repo.preload(:content)
+
+      baz =
+        SomeTable.Baz.changeset(%SomeTable.Baz{}, %{
+          is_special: false,
+          content: %{name: "abc", baz: true}
+        })
+        |> Repo.insert!()
+        |> Repo.preload(:content)
+
+      assert %SomeTable.BarContent{name: "def"} = bar.content
+      assert %SomeTable.BazContent{name: "abc", baz: true} = baz.content
     end
 
     test "can override schema protocol" do
