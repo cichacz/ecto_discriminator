@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.2.9
+
+* Bug fix
+    * Fixed usage of macros inside `schema` definition
+
 ## v0.2.8
 
 * Enhancements

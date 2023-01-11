@@ -236,6 +236,8 @@ defmodule EctoDiscriminator.Schema do
       Macro.prewalk(ast, [], fn
         # return nil to avoid going inside this AST
         {_, _, [name | _]} = ast, acc when is_atom(name) -> {nil, [{name, ast} | acc]}
+        # in case we call macro inside schema
+        {name, _, _} = ast, acc when name != :__block__ -> {nil, [{name, ast} | acc]}
         other, acc -> {other, acc}
       end)
 

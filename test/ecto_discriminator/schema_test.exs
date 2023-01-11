@@ -11,7 +11,9 @@ defmodule EctoDiscriminator.SchemaTest do
   describe "base schema" do
     test "properly sets up schema" do
       fields = SomeTable.__schema__(:fields)
-      assert MapSet.new(fields) == MapSet.new([:id, :type, :title, :content, :parent_id])
+
+      assert MapSet.new(fields) ==
+               MapSet.new([:id, :type, :title, :content, :parent_id, :inserted_at, :updated_at])
     end
 
     test "provides access to common schema fields definitions" do
@@ -21,7 +23,8 @@ defmodule EctoDiscriminator.SchemaTest do
                {:field, _, [:title, :string]},
                {:field, _, [:content, :map]},
                {:field, _, [:type, _]},
-               {:belongs_to, _, [:parent, _]}
+               {:belongs_to, _, [:parent, _]},
+               {:timestamps, _, []}
              ] = common_fields
     end
 
@@ -33,6 +36,15 @@ defmodule EctoDiscriminator.SchemaTest do
     test "provides access to discriminator name" do
       discriminator_name = SomeTable.__schema__(:discriminator)
       assert :type == discriminator_name
+    end
+
+    test "can insert itself" do
+      SomeTable.changeset(%SomeTable{})
+      |> Repo.insert!()
+
+      rows = SomeTable |> Repo.all()
+
+      assert length(rows) == 1
     end
 
     test "can create diverged changesets" do
@@ -152,6 +164,7 @@ defmodule EctoDiscriminator.SchemaTest do
                {:has_one, _, [:child, _, _]},
                {:has_one, _, [:sibling, _, _]},
                {:field, _, [:source, :string]},
+               {:timestamps, _, []},
                {:belongs_to, _, [:parent, _]},
                {:field, _,
                 [
@@ -166,7 +179,18 @@ defmodule EctoDiscriminator.SchemaTest do
 
     test "has common fields injected" do
       fields = SomeTable.Foo.__schema__(:fields)
-      assert MapSet.new(fields) == MapSet.new([:id, :source, :content, :type, :title, :parent_id])
+
+      assert MapSet.new(fields) ==
+               MapSet.new([
+                 :id,
+                 :source,
+                 :content,
+                 :type,
+                 :title,
+                 :parent_id,
+                 :inserted_at,
+                 :updated_at
+               ])
     end
 
     test "sets default value for discriminator" do

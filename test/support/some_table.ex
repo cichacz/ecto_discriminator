@@ -8,6 +8,8 @@ defmodule EctoDiscriminator.SomeTable do
     field :content, :map
     field :type, EctoDiscriminator.DiscriminatorType
     belongs_to :parent, EctoDiscriminator.SomeTable.Foo
+
+    timestamps()
   end
 
   def changeset(struct, params \\ %{}) do
