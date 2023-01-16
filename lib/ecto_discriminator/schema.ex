@@ -25,8 +25,8 @@ defmodule EctoDiscriminator.Schema do
 
   #### Diverged changeset
 
-  Base schemas have predefined function, based on [`DiscriminatorSchema.diverged_changeset/2`](`EctoDiscriminator.DiscriminatorSchema.diverged_changeset/2`),
-  that allows creating changesets for diverged schemas directly from base (check [here](`EctoDiscriminator.DiscriminatorSchema.diverged_changeset/2`) for more).
+  Base schemas have predefined function, based on [`DiscriminatorChangeset.diverged_changeset/2`](`EctoDiscriminator.DiscriminatorChangeset.diverged_changeset/2`),
+  that allows creating changesets for diverged schemas directly from base (check [here](`EctoDiscriminator.DiscriminatorChangeset.diverged_changeset/2`) for more).
 
   ## Diverged schema
 
@@ -47,9 +47,9 @@ defmodule EctoDiscriminator.Schema do
 
   #### Casting base fields
 
-  Diverged schemas have predefined function, based on [`DiscriminatorSchema.cast_base/3`](`EctoDiscriminator.DiscriminatorSchema.cast_base/3`),
+  Diverged schemas have predefined function, based on [`DiscriminatorChangeset.cast_base/3`](`EctoDiscriminator.DiscriminatorChangeset.cast_base/3`),
   that allows running base changesets inside changeset of diverged schema
-  (check [here](`EctoDiscriminator.DiscriminatorSchema.cast_base/3`) for more).
+  (check [here](`EctoDiscriminator.DiscriminatorChangeset.cast_base/3`) for more).
 
   ## Querying
 
@@ -112,8 +112,8 @@ defmodule EctoDiscriminator.Schema do
   defmacro schema(source, do: fields) do
     source_module = Macro.expand(source, __CALLER__)
     caller_module = __CALLER__.module
-    unique_fields_macro = unique_fields_macro(fields)
-    fields = get_merged_fields(source_module, caller_module, fields)
+    merged_fields = get_merged_fields(source_module, caller_module, fields)
+    unique_fields_macro = unique_fields_macro(merged_fields, fields)
 
     # primary key must be explicitly set before ecto schema macro kicks off
     primary_key_def =
@@ -135,12 +135,12 @@ defmodule EctoDiscriminator.Schema do
     # call genuine Ecto.Schema and inject our stuff
     schema =
       source_module.__schema__(:source)
-      |> call_ecto_schema(fields)
+      |> call_ecto_schema(merged_fields)
       |> inject_where(source_module)
 
     helpers = diverged_helpers(source_module)
 
-    Module.put_attribute(caller_module, :fields_def, fields)
+    Module.put_attribute(caller_module, :fields_def, merged_fields)
 
     [primary_key, schema, helpers, unique_fields_macro]
   end
@@ -154,7 +154,7 @@ defmodule EctoDiscriminator.Schema do
       import EctoDiscriminator.Schema, only: [schema: 2]
 
       @before_compile EctoDiscriminator.Schema
-      @derive EctoDiscriminator.DiscriminatorSchema
+      @derive EctoDiscriminator.DiscriminatorChangeset
     end
   end
 
@@ -168,17 +168,33 @@ defmodule EctoDiscriminator.Schema do
     end
   end
 
-  defp unique_fields_macro(existing_fields) do
+  defp unique_fields_macro(merged_fields, fields) do
     {_, existing_field_names} =
-      existing_fields
+      fields
       |> Macro.prewalk([], fn
         # return nil to avoid going inside this AST
         {_, _, [name | _]}, acc when is_atom(name) -> {nil, [name | acc]}
         other, acc -> {other, acc}
       end)
 
+    {_, unique_fields_names} =
+      merged_fields
+      |> Macro.prewalk([], fn
+        # return nil to avoid going inside this AST
+        {_, meta, [name | _]}, acc when is_atom(name) ->
+          if name in existing_field_names && !Keyword.has_key?(meta, :duplicate) do
+            # from all fields we treat as unique only the ones that current schema defines and have different type
+            {nil, [name | acc]}
+          else
+            {nil, acc}
+          end
+
+        other, acc ->
+          {other, acc}
+      end)
+
     quote do
-      def __schema__(:unique_fields), do: unquote(existing_field_names)
+      def __schema__(:unique_fields), do: unquote(unique_fields_names)
     end
   end
 
@@ -217,7 +233,7 @@ defmodule EctoDiscriminator.Schema do
         # otherwise in case of conflict and matching types, merge options
         if Macro.expand(type, __ENV__) == Macro.expand(existing_type, __ENV__) do
           rest = merge_rest_options(existing_rest, List.first(rest) || [])
-          {field_type, meta, [name, type | rest]}
+          add_duplicate_meta({field_type, meta, [name, type | rest]})
         else
           new
         end
@@ -244,6 +260,10 @@ defmodule EctoDiscriminator.Schema do
     ast_kv
   end
 
+  defp add_duplicate_meta(ast) do
+    update_in(ast, [Access.elem(1)], &Keyword.put(&1, :duplicate, true))
+  end
+
   defp merge_rest_options(rest, opts) when is_list(opts) do
     case rest do
       [] when opts == [] -> []
@@ -256,7 +276,7 @@ defmodule EctoDiscriminator.Schema do
     if function_exported?(source, :changeset, 2) do
       quote bind_quoted: [source: source] do
         defp cast_base(data, params),
-          do: EctoDiscriminator.DiscriminatorSchema.cast_base(data, params, unquote(source))
+          do: EctoDiscriminator.DiscriminatorChangeset.cast_base(data, params, unquote(source))
       end
     end
   end
@@ -293,7 +313,7 @@ defmodule EctoDiscriminator.Schema do
 
       # add special changeset that will make possible to produce diverged schema changesets using base module name
       def diverged_changeset(struct, params \\ %{}),
-        do: EctoDiscriminator.DiscriminatorSchema.diverged_changeset(struct, params)
+        do: EctoDiscriminator.DiscriminatorChangeset.diverged_changeset(struct, params)
     end
   end
 

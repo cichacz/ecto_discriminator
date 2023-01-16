@@ -9,12 +9,13 @@ defmodule EctoDiscriminator.SomeTablePk do
 
   @primary_key {:type, EctoDiscriminator.DiscriminatorType, []}
   schema "some_table_pk" do
+    field :source, :integer
     # make sure field types can contain aliases and module attributes
     field :title, Enum, values: @values
   end
 
-  def changeset(%__MODULE__{} = struct, params \\ %{}) do
+  def changeset(struct, params \\ %{}) do
     struct
-    |> cast(params, [:title])
+    |> cast(params, [:title, :source])
   end
 end

@@ -1,4 +1,4 @@
-defprotocol EctoDiscriminator.DiscriminatorSchema do
+defprotocol EctoDiscriminator.DiscriminatorChangeset do
   @moduledoc """
   Protocol for defining behaviour of changesets on discriminator-enabled schemas.
 
@@ -22,11 +22,11 @@ defprotocol EctoDiscriminator.DiscriminatorSchema do
   Type is inferred from the discriminator field in `params` or from passed struct.
 
   Every module that uses `EctoDiscriminator.Schema` derives the basic implementation.
-  There is also a helper method to avoid aliasing `EctoDiscriminator.DiscriminatorSchema` everywhere.
+  There is also a helper method to avoid aliasing `EctoDiscriminator.DiscriminatorChangeset` everywhere.
 
   ## Examples
 
-      changeset = DiscriminatorSchema.diverged_changeset(%SomeTable{}, %{type: SomeTable.Foo})
+      changeset = DiscriminatorChangeset.diverged_changeset(%SomeTable{}, %{type: SomeTable.Foo})
       changeset.data #=> %SomeTable.Foo{...}
 
   You can call the same thing from any module that uses `EctoDiscriminator.schema`:
@@ -53,7 +53,7 @@ defprotocol EctoDiscriminator.DiscriminatorSchema do
   `cast_base/3` won't contain changes for fields that are overriden by diverged schema.
 
   Every module that uses `EctoDiscriminator.Schema` derives the basic implementation.
-  There is also a helper method to avoid aliasing `EctoDiscriminator.DiscriminatorSchema` everywhere.
+  There is also a helper method to avoid aliasing `EctoDiscriminator.DiscriminatorChangeset` everywhere.
 
   ## Examples
 
@@ -67,23 +67,23 @@ defprotocol EctoDiscriminator.DiscriminatorSchema do
   def cast_base(struct, params, source)
 end
 
-defimpl EctoDiscriminator.DiscriminatorSchema, for: Any do
+defimpl EctoDiscriminator.DiscriminatorChangeset, for: Any do
   import Ecto.Changeset
 
   def diverged_changeset(data, params) do
     data
     |> change()
-    |> EctoDiscriminator.DiscriminatorSchema.diverged_changeset(params)
+    |> EctoDiscriminator.DiscriminatorChangeset.diverged_changeset(params)
   end
 
   def cast_base(data, params, source) do
     data
     |> change()
-    |> EctoDiscriminator.DiscriminatorSchema.cast_base(params, source)
+    |> EctoDiscriminator.DiscriminatorChangeset.cast_base(params, source)
   end
 end
 
-defimpl EctoDiscriminator.DiscriminatorSchema, for: Ecto.Changeset do
+defimpl EctoDiscriminator.DiscriminatorChangeset, for: Ecto.Changeset do
   import Ecto.Changeset
 
   def diverged_changeset(%{data: data} = changeset, params) do
@@ -111,22 +111,39 @@ defimpl EctoDiscriminator.DiscriminatorSchema, for: Ecto.Changeset do
     struct = data.__struct__
     discriminator = struct.__schema__(:discriminator)
 
-    base_changeset =
+    new_changeset =
       changeset
       |> Map.update!(:data, fn data -> Map.put(data, :__struct__, source) end)
       |> Map.put(:types, source.__changeset__())
       |> source.changeset(params)
-      # replace data & types with current schema to be able to continue in original changeset
-      |> Map.put(:data, data)
-      |> Map.put(:types, struct.__changeset__())
-      # drop from changes keys that are overwritten in diverged schema
-      |> Map.update!(:changes, &Map.drop(&1, struct.__schema__(:unique_fields)))
+      |> transform_source_changeset(struct, data)
       # add discriminator field to changeset
       |> cast(params, [discriminator])
       |> validate_required(discriminator)
       |> validate_change(discriminator, &validate_discriminator_value(&1, &2, source))
 
-    Ecto.Changeset.merge(changeset, base_changeset)
+    Ecto.Changeset.merge(changeset, new_changeset)
+  end
+
+  defp transform_source_changeset(
+         %Ecto.Changeset{changes: changes, errors: errors} = changeset,
+         struct,
+         data
+       ) do
+    # drop changes and errors keys that are overwritten in diverged schema
+    changes = Map.drop(changes, struct.__schema__(:unique_fields))
+    errors = Keyword.drop(errors, struct.__schema__(:unique_fields))
+    valid? = errors == []
+
+    # replace data & types with current schema to be able to continue in original changeset
+    %{
+      changeset
+      | data: data,
+        types: struct.__changeset__(),
+        changes: changes,
+        errors: errors,
+        valid?: valid?
+    }
   end
 
   defp validate_discriminator_value(discriminator, module_name, source) do

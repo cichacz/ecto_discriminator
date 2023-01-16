@@ -1,6 +1,8 @@
 defmodule EctoDiscriminator.SchemaTest do
   use EctoDiscriminator.RepoCase, async: true
 
+  import Ecto.Query
+
   alias EctoDiscriminator.Schema
 
   alias EctoDiscriminator.SomeTable
@@ -133,6 +135,24 @@ defmodule EctoDiscriminator.SchemaTest do
       assert foo_changes.valid?
     end
 
+    test "requires casting overwritten fields for incompatible types" do
+      SomeTablePk.diverged_changeset(%SomeTablePk{}, %{type: SomeTable.FooPk, source: "asdf"})
+      |> Repo.insert!()
+
+      [row] = SomeTable.FooPk |> Repo.all()
+
+      refute row.source
+    end
+
+    test "doesn't require casting overwritten fields for matching types" do
+      SomeTablePk.diverged_changeset(%SomeTablePk{}, %{type: SomeTable.FooPk, title: :a})
+      |> Repo.insert!()
+
+      [row] = SomeTable.FooPk |> Repo.all()
+
+      assert row.title == :a
+    end
+
     test "validates diverged schemas" do
       assert {:error, %{errors: [content: {"can't be blank", [validation: :required]}]}} =
                SomeTable.diverged_changeset(%SomeTable{}, %{
@@ -196,6 +216,26 @@ defmodule EctoDiscriminator.SchemaTest do
     test "sets default value for discriminator" do
       struct = %SomeTable.Foo{}
       assert struct.type == SomeTable.Foo
+    end
+
+    test "applies filter to query built as expressions" do
+      SomeTable.Foo.changeset(%SomeTable.Foo{}, %{title: "Foo one", content: %{length: 7}})
+      |> Repo.insert!()
+
+      SomeTable.Bar.changeset(%SomeTable.Bar{}, %{title: "Bar two"})
+      |> Repo.insert!()
+
+      assert [_row] = SomeTable.Foo |> Repo.all()
+    end
+
+    test "applies filter to query built as keywords" do
+      SomeTable.Foo.changeset(%SomeTable.Foo{}, %{title: "Foo one", content: %{length: 7}})
+      |> Repo.insert!()
+
+      SomeTable.Bar.changeset(%SomeTable.Bar{}, %{title: "Bar two"})
+      |> Repo.insert!()
+
+      assert [_row] = from(foo in SomeTable.Foo) |> Repo.all()
     end
 
     test "inserts different schema" do
@@ -412,7 +452,7 @@ defmodule EctoDiscriminator.SchemaTest do
 
     test "can override schema protocol" do
       assert_raise RuntimeError, fn ->
-        EctoDiscriminator.DiscriminatorSchema.diverged_changeset(%SomeTable.FooPk{})
+        EctoDiscriminator.DiscriminatorChangeset.diverged_changeset(%SomeTable.FooPk{})
       end
     end
   end
