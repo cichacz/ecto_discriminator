@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.3.0
+
+* Breaking changes
+    * Renamed `EctoDiscriminator.DiscriminatorSchema` to `EctoDiscriminator.DiscriminatorChangeset` since it focuses on
+      adding extra functionality to the changesets rather than schemas
+
 ## v0.2.9
 
 * Bug fix
@@ -19,7 +25,7 @@
 ## v0.2.6
 
 * Bug fix
-    * Changed way how `DiscriminatorSchema` is used. It should be more flexible now. Previously sometimes the changes
+    * Changed way how `DiscriminatorChangeset` is used. It should be more flexible now. Previously sometimes the changes
       weren't properly reflected
 
 ## v0.2.5

@@ -1,5 +1,7 @@
 # EctoDiscriminator
 
+[![Hex.pm](https://img.shields.io/hexpm/v/ecto_discriminator)](https://hex.pm/packages/ecto_discriminator) [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/cichacz/ecto_discriminator/elixir.yml?label=Elixir%20CI&logo=github)](https://github.com/cichacz/ecto_discriminator/actions/workflows/elixir.yml)
+
 ## Motivation
 
 This small library was built to support table-per-hierarchy inheritance pattern (TPH) popular in Microsoft's Entity
@@ -100,5 +102,8 @@ You can also browse `test` directory for some example setup.
 
 ## Known limitations
 
+- When using keywords for constructing queries: `from(s in SomeTable)` the `where` condition won't be automatically
+  applied.  
+  This is because Ecto handles `from` macro in a way that skips `Ecto.Queryable` protocol.
 - It's not possible to obtain correct mapping with something like `Repo.all(BaseSchema)`. You have to execute separate
   query for each diverged type and then concat results.
