@@ -1,11 +1,27 @@
 defmodule EctoDiscriminator.DiscriminatorChangesetTest do
-  use ExUnit.Case, async: true
+  use EctoDiscriminator.RepoCase, async: true
 
   alias EctoDiscriminator.DiscriminatorChangeset
 
   alias EctoDiscriminator.SomeTable
 
   doctest DiscriminatorChangeset
+
+  describe "diverged_changeset/2" do
+    test "sets proper metadata" do
+      entry =
+        DiscriminatorChangeset.diverged_changeset(%SomeTable{}, %{
+          title: "Foo one",
+          source: "asdf",
+          type: SomeTable.Foo,
+          content: %{length: 7}
+        })
+        |> Ecto.Changeset.apply_action!(:insert)
+
+      assert %Ecto.Schema.Metadata{schema: SomeTable.Foo, source: "some_table", state: :built} =
+               entry.__meta__
+    end
+  end
 
   describe "cast_base/3" do
     test "properly merges new changesets" do

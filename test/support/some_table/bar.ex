@@ -3,6 +3,7 @@ defmodule EctoDiscriminator.SomeTable.Bar do
 
   import Ecto.Changeset
 
+  @derive {Jason.Encoder, only: [:title]}
   schema EctoDiscriminator.SomeTable do
     has_one :content, EctoDiscriminator.SomeTable.BarContent
     belongs_to :sibling, EctoDiscriminator.SomeTable.Foo

@@ -3,6 +3,7 @@ defmodule EctoDiscriminator.SomeTable do
 
   import Ecto.Changeset
 
+  @derive {Jason.Encoder, only: [:title, :content, :type]}
   schema "some_table" do
     field :title, :string
     field :content, :map

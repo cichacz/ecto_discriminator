@@ -20,7 +20,7 @@ defmodule EctoDiscriminator.DiscriminatorType do
       field :type, EctoDiscriminator.DiscriminatorType, virtual: true
 
   > #### Please note {: .info}
-  > 
+  >
   > This will keep most of the functionality intact, however it will disable `where` when fetching data.
   >
   > This means that you can for example still preload this entity inside other schemas,

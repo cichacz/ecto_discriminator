@@ -218,6 +218,15 @@ defmodule EctoDiscriminator.SchemaTest do
       assert struct.type == SomeTable.Foo
     end
 
+    test "inherites derived protocols" do
+      assert "{\"title\":null,\"content\":null,\"type\":\"Elixir.EctoDiscriminator.SomeTable.Foo\"}" ==
+               Jason.encode!(%SomeTable.Foo{})
+    end
+
+    test "allows overwriting derived protocols" do
+      assert "{\"title\":null}" == Jason.encode!(%SomeTable.Bar{})
+    end
+
     test "applies filter to query built as expressions" do
       SomeTable.Foo.changeset(%SomeTable.Foo{}, %{title: "Foo one", content: %{length: 7}})
       |> Repo.insert!()

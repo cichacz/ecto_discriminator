@@ -45,6 +45,12 @@ defmodule EctoDiscriminator.Schema do
 
   Diverged schemas can contain any field supported by `Ecto.Schema`.
 
+  #### Inheriting struct-related stuff
+
+  ##### @derive
+
+  Any `@derive` declarations put in base schema will be applied to the diverged schema. You can still overwrite those for particular schema if needed.
+
   #### Casting base fields
 
   Diverged schemas have predefined function, based on [`DiscriminatorChangeset.cast_base/3`](`EctoDiscriminator.DiscriminatorChangeset.cast_base/3`),
@@ -75,7 +81,7 @@ defmodule EctoDiscriminator.Schema do
                             |> Module.split()
                             |> Enum.map(&String.to_atom/1)
 
-  defmacro __using__(_), do: set_up_schema()
+  defmacro __using__(_), do: set_up_schema(__CALLER__.module)
 
   defmacro __before_compile__(env) do
     inheritance_helpers(env)
@@ -115,6 +121,12 @@ defmodule EctoDiscriminator.Schema do
     merged_fields = get_merged_fields(source_module, caller_module, fields)
     unique_fields_macro = unique_fields_macro(merged_fields, fields)
 
+    # register Protocol derives, later on (in before_compile) we filter them for uniqueness
+    source_module.__info__(:attributes)
+    |> Keyword.get_values(:derive)
+    |> List.delete([EctoDiscriminator.DiscriminatorChangeset])
+    |> Enum.each(&Module.put_attribute(caller_module, :base_derive, &1))
+
     # primary key must be explicitly set before ecto schema macro kicks off
     primary_key_def =
       case source_module.__schema__(:primary_key_def) do
@@ -145,7 +157,10 @@ defmodule EctoDiscriminator.Schema do
     [primary_key, schema, helpers, unique_fields_macro]
   end
 
-  defp set_up_schema() do
+  defp set_up_schema(caller_module) do
+    # make derived attributes persisted so it can be inherited
+    Module.register_attribute(caller_module, :derive, persist: true, accumulate: true)
+
     quote do
       use Ecto.Schema
 
@@ -282,6 +297,22 @@ defmodule EctoDiscriminator.Schema do
   end
 
   defp inheritance_helpers(env) do
+    import Protocol, only: [derive: 2, derive: 3]
+
+    derived = Module.get_attribute(env.module, :derive)
+
+    derived
+    |> Kernel.++(Module.get_attribute(env.module, :base_derive, []))
+    |> Enum.uniq_by(fn
+      {k, _} -> k
+      k when is_atom(k) -> k
+    end)
+    |> Enum.reject(&Enum.member?(derived, &1))
+    |> Enum.each(fn
+      {k, v} -> derive(k, env.module, v)
+      k when is_atom(k) -> derive(k, env.module)
+    end)
+
     fields_def =
       Module.get_attribute(env.module, :fields_def)
       |> Macro.prewalk(fn
