@@ -2,7 +2,7 @@ defmodule EctoDiscriminator.MixProject do
   use Mix.Project
 
   @source_url "https://github.com/cichacz/ecto_discriminator"
-  @version "0.3.0"
+  @version "0.3.1"
 
   def project do
     [

@@ -170,10 +170,7 @@ defmodule EctoDiscriminator.Schema do
     base_derived =
       quote unquote: false do
         # expose derived Protocols to be inherited
-        derived =
-          __MODULE__
-          |> Module.get_attribute(:derive, [])
-          |> List.delete(EctoDiscriminator.DiscriminatorChangeset)
+        derived = Module.get_attribute(__MODULE__, :derive, [])
 
         def __schema__(:derived), do: unquote(derived)
       end

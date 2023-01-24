@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.3.1
+
+* Enhancements
+    * Added support for inheritance of `@derive`. Now you don't have to duplicate declarations for things like `Jason.Encoder`
+    
+* Bug fix
+    * Fixed value of `__meta__` after running `diverged_changeset/2`
+
 ## v0.3.0
 
 * Breaking changes
