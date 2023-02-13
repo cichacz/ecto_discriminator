@@ -1,4 +1,8 @@
 # Changelog
+## v0.3.2
+
+* Enhancements
+    * You can get list of all diverged schemas by calling `BaseSchema.__schema__(:diverged)`
 
 ## v0.3.1
 

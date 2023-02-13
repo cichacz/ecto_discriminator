@@ -30,6 +30,10 @@ defmodule EctoDiscriminator.SchemaTest do
              ] = common_fields
     end
 
+    test "prvides access to the list of diverged schemas" do
+      assert MapSet.new([SomeTable.Foo, SomeTable.Bar, SomeTable.Baz]) == MapSet.new(SomeTable.__schema__(:diverged))
+    end
+
     test "doesn't set default value for discriminator" do
       struct = %SomeTable{}
       assert struct.type == nil
@@ -45,15 +49,6 @@ defmodule EctoDiscriminator.SchemaTest do
       |> Repo.insert!()
 
       rows = SomeTable |> Repo.all()
-
-      assert length(rows) == 1
-    end
-
-    test "can create diverged changesets" do
-      SomeTable.diverged_changeset(%SomeTable.Bar{})
-      |> Repo.insert!()
-
-      rows = SomeTable.Bar |> Repo.all()
 
       assert length(rows) == 1
     end

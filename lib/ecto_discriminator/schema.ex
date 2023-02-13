@@ -161,6 +161,12 @@ defmodule EctoDiscriminator.Schema do
 
       @before_compile EctoDiscriminator.Schema
       @derive EctoDiscriminator.DiscriminatorChangeset
+
+      # use protocol to get out-of-the-box consolidation
+      # Dialyzer doesn't really pick up this protocol properly and will issue warnings within each schema
+      defprotocol Diverged do
+        Protocol.def(dummy(struct))
+      end
     end
   end
 
@@ -315,12 +321,24 @@ defmodule EctoDiscriminator.Schema do
   end
 
   defp diverged_helpers(source) do
-    if function_exported?(source, :changeset, 2) do
-      quote bind_quoted: [source: source] do
-        defp cast_base(data, params),
-          do: EctoDiscriminator.DiscriminatorChangeset.cast_base(data, params, unquote(source))
+    source_protocol = Module.concat(source, Diverged)
+
+    protocol_impl =
+      quote do
+        defimpl unquote(source_protocol) do
+          def dummy(_), do: nil
+        end
       end
-    end
+
+    cast_base =
+      if function_exported?(source, :changeset, 2) do
+        quote bind_quoted: [source: source] do
+          defp cast_base(data, params),
+            do: EctoDiscriminator.DiscriminatorChangeset.cast_base(data, params, unquote(source))
+        end
+      end
+
+    [protocol_impl, cast_base]
   end
 
   defp inheritance_helpers(env) do
@@ -343,7 +361,9 @@ defmodule EctoDiscriminator.Schema do
 
     discriminator_name = lookup_discriminator_field_name(fields_def, primary_key)
 
-    quote do
+    protocol_name = Module.concat(env.module, Diverged)
+
+    quote generated: true do
       # expose fields from source schema so diverged schemas can add them to their schemas
       # we need this because when fields go through ecto schema there is no simple way of retrieving their full definition
       def __schema__(:fields_def), do: unquote(Macro.escape(fields_def))
@@ -352,6 +372,14 @@ defmodule EctoDiscriminator.Schema do
 
       # add discriminator variant of __schema__ function so any schema can directly get the discriminator field name
       def __schema__(:discriminator), do: unquote(discriminator_name)
+
+      # add __schema__ function that returns list of diverged modules
+      def __schema__(:diverged) do
+        case unquote(protocol_name).__protocol__(:impls) do
+          {:consolidated, list} -> list
+          _ -> []
+        end
+      end
 
       # add special changeset that will make possible to produce diverged schema changesets using base module name
       def diverged_changeset(struct, params \\ %{}),

@@ -106,4 +106,5 @@ You can also browse `test` directory for some example setup.
   applied.  
   This is because Ecto handles `from` macro in a way that skips `Ecto.Queryable` protocol.
 - It's not possible to obtain correct mapping with something like `Repo.all(BaseSchema)`. You have to execute separate
-  query for each diverged type and then concat results.
+  query for each diverged type and then concat results (this was tested and seems to be the fastest solution).
+- Dialyzer may add some warnings regarding "missing callback information". Maybe it can be solved somehow.
