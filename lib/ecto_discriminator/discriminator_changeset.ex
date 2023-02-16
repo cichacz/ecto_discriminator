@@ -103,9 +103,9 @@ defimpl EctoDiscriminator.DiscriminatorChangeset, for: Ecto.Changeset do
     diverged_changeset = diverged_schema.changeset(data, params)
 
     changeset
-    # replace data & types with diverged schema to be able to continue in original changeset
-    |> Map.put(:data, data)
-    |> Map.put(:types, diverged_schema.__changeset__())
+    # replace data & types with ones from diverged changeset to be able to continue in original changeset
+    |> Map.put(:data, diverged_changeset.data)
+    |> Map.put(:types, diverged_changeset.types)
     |> Ecto.Changeset.merge(diverged_changeset)
   end
 

@@ -3,6 +3,9 @@
 
 * Enhancements
     * You can get list of all diverged schemas by calling `BaseSchema.__schema__(:diverged)`
+    
+* Bug fix
+    * Fixed situations where `diverged_changeset/2` may have been receiving different structs
 
 ## v0.3.1
 
