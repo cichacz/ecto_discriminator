@@ -18,8 +18,26 @@ defmodule EctoDiscriminator.DiscriminatorChangesetTest do
         })
         |> Ecto.Changeset.apply_action!(:insert)
 
-      assert %Ecto.Schema.Metadata{schema: SomeTable.Foo, source: "some_table", state: :built} =
+      assert %Ecto.Schema.Metadata{schema: SomeTable.Foo, source: "some_table", state: :built} ==
                entry.__meta__
+    end
+
+    test "sets proper owners of relationships" do
+      entry =
+        DiscriminatorChangeset.diverged_changeset(%SomeTable.Foo{}, %{
+          title: "Foo one",
+          source: "asdf",
+          is_special: true,
+          type: SomeTable.Qux,
+          content: %{length: 7}
+        })
+        |> Ecto.Changeset.apply_action!(:insert)
+
+      assert %Ecto.Association.NotLoaded{
+               __field__: :sibling,
+               __owner__: SomeTable.Qux,
+               __cardinality__: :one
+             } == entry.sibling
     end
   end
 

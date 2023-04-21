@@ -95,8 +95,15 @@ defimpl EctoDiscriminator.DiscriminatorChangeset, for: Ecto.Changeset do
         Ecto.Changeset.get_field(changeset, discriminator) ||
         struct
 
-    # have to drop __meta__ because it comes from base schema
-    data = data |> Map.from_struct() |> Map.delete(:__meta__)
+    data =
+      data
+      |> Map.from_struct()
+      # have to drop __meta__ because it comes from base schema
+      |> Map.delete(:__meta__)
+      # take only items that hold some value
+      |> Enum.reject(fn {_, value} -> match?(%Ecto.Association.NotLoaded{}, value) end)
+      |> Enum.into(%{})
+
     data = struct(diverged_schema, data)
 
     # just call changeset from the derived schema and hope it calls cast_base to pull fields from the base schema
