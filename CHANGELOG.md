@@ -1,4 +1,9 @@
 # Changelog
+## v0.3.3
+    
+* Bug fix
+    * Fixed situations where `diverged_changeset/2` was returning incorrect owners of relationships
+
 ## v0.3.2
 
 * Enhancements
