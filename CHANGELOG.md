@@ -1,4 +1,13 @@
 # Changelog
+
+## v0.4.0
+
+* Enhancements
+    * You can transform diverged schema to its base by calling `DivergedSchema.to_base(%DivergedSchema{})`
+    
+* Bug fix
+    * Fixed `__meta__[:state]` for entities loaded from DB
+
 ## v0.3.3
     
 * Bug fix
