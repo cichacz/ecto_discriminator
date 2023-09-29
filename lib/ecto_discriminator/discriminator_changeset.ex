@@ -13,7 +13,7 @@ defprotocol EctoDiscriminator.DiscriminatorChangeset do
   @doc """
   Calls `changeset/2` function from diverged type.
 
-  In general, this function works the same like calling `changeset/2` on diverged schema with `cast_base/3` inside.
+  In general, this function works the same like calling `changeset/2` on diverged schema with `cast_base/2` inside.
   It becomes useful when you want to create changeset for diverged struct,
   but the data is coming from external source (like user input).
   This makes it possible to use generic naming like `SomeTable`
@@ -42,6 +42,30 @@ defprotocol EctoDiscriminator.DiscriminatorChangeset do
   def diverged_changeset(struct, params \\ %{})
 
   @doc """
+  Outputs changeset for base schema from a diverged one.
+
+  This makes it possible to reduce diverged struct to base version in places where we have polymorphic relationship,
+  to avoid loading the same data in multiple ways.
+
+  Type is inferred from the discriminator field in passed struct.
+
+  Every module that uses `EctoDiscriminator.Schema` derives the basic implementation.
+  There is also a helper method to avoid aliasing `EctoDiscriminator.DiscriminatorChangeset` everywhere.
+
+  ## Examples
+
+      changeset = DiscriminatorChangeset.base_changeset(%SomeTable.Foo{not_in_base: 1}, %{not_in_base_param: 1})
+      changeset.data #=> %SomeTable{...} - won't contain "not_in" values
+      changeset.changes #=> %{}
+
+  You can call the same thing from any module that uses `EctoDiscriminator.schema`:
+
+      changeset = SomeTable.base_changeset(%SomeTable.Foo{}, %{})
+      changeset.data #=> %SomeTable{...}
+  """
+  def base_changeset(struct, params \\ %{})
+
+  @doc """
   Calls `changeset/2` function from base type.
 
   Use this inside changeset function of a diverged schema to call base changeset.
@@ -50,7 +74,7 @@ defprotocol EctoDiscriminator.DiscriminatorChangeset do
   and then returns changeset for further modifications.
 
   It can be placed anywhere in the changeset, but the safest place should be the beginning.
-  `cast_base/3` won't contain changes for fields that are overriden by diverged schema.
+  `cast_base/2` won't contain changes for fields that are overriden by diverged schema.
 
   Every module that uses `EctoDiscriminator.Schema` derives the basic implementation.
   There is also a helper method to avoid aliasing `EctoDiscriminator.DiscriminatorChangeset` everywhere.
@@ -64,7 +88,7 @@ defprotocol EctoDiscriminator.DiscriminatorChangeset do
         |> ...
       end
   """
-  def cast_base(struct, params, source)
+  def cast_base(struct, params)
 end
 
 defimpl EctoDiscriminator.DiscriminatorChangeset, for: Any do
@@ -76,10 +100,16 @@ defimpl EctoDiscriminator.DiscriminatorChangeset, for: Any do
     |> EctoDiscriminator.DiscriminatorChangeset.diverged_changeset(params)
   end
 
-  def cast_base(data, params, source) do
+  def base_changeset(data, params) do
     data
     |> change()
-    |> EctoDiscriminator.DiscriminatorChangeset.cast_base(params, source)
+    |> EctoDiscriminator.DiscriminatorChangeset.base_changeset(params)
+  end
+
+  def cast_base(data, params) do
+    data
+    |> change()
+    |> EctoDiscriminator.DiscriminatorChangeset.cast_base(params)
   end
 end
 
@@ -95,16 +125,7 @@ defimpl EctoDiscriminator.DiscriminatorChangeset, for: Ecto.Changeset do
         Ecto.Changeset.get_field(changeset, discriminator) ||
         struct
 
-    data =
-      data
-      |> Map.from_struct()
-      # have to drop __meta__ because it comes from base schema
-      |> Map.delete(:__meta__)
-      # take only items that hold some value
-      |> Enum.reject(fn {_, value} -> match?(%Ecto.Association.NotLoaded{}, value) end)
-      |> Enum.into(%{})
-
-    data = struct(diverged_schema, data)
+    data = EctoDiscriminator.Schema.to_base(data, diverged_schema)
 
     # just call changeset from the derived schema and hope it calls cast_base to pull fields from the base schema
     diverged_changeset = diverged_schema.changeset(data, params)
@@ -116,20 +137,27 @@ defimpl EctoDiscriminator.DiscriminatorChangeset, for: Ecto.Changeset do
     |> Ecto.Changeset.merge(diverged_changeset)
   end
 
-  def cast_base(%{data: data} = changeset, params, source) do
+  def base_changeset(%{data: data} = changeset, params) do
+    data = data.__struct__.to_base(data)
+    source = data.__struct__
+
+    changeset
+    |> Map.put(:data, data)
+    |> Map.put(:types, source.__changeset__())
+    |> source.changeset(params)
+  end
+
+  def cast_base(%{data: data} = changeset, params) do
     struct = data.__struct__
     discriminator = struct.__schema__(:discriminator)
 
     new_changeset =
       changeset
-      |> Map.update!(:data, fn data -> Map.put(data, :__struct__, source) end)
-      |> Map.put(:types, source.__changeset__())
-      |> source.changeset(params)
+      |> base_changeset(params)
       |> transform_source_changeset(struct, data)
       # add discriminator field to changeset
       |> cast(params, [discriminator])
       |> validate_required(discriminator)
-      |> validate_change(discriminator, &validate_discriminator_value(&1, &2, source))
 
     Ecto.Changeset.merge(changeset, new_changeset)
   end
@@ -153,17 +181,5 @@ defimpl EctoDiscriminator.DiscriminatorChangeset, for: Ecto.Changeset do
         errors: errors,
         valid?: valid?
     }
-  end
-
-  defp validate_discriminator_value(discriminator, module_name, source) do
-    with(
-      :loaded <- :code.module_status(module_name),
-      true <- source.__schema__(:source) == module_name.__schema__(:source)
-    ) do
-      []
-    else
-      false -> [{discriminator, "sources don't match"}]
-      _ -> [{discriminator, "not found"}]
-    end
   end
 end

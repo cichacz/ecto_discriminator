@@ -51,11 +51,22 @@ defmodule EctoDiscriminator.Schema do
 
   Any `@derive` declarations put in base schema will be applied to the diverged schema. You can still overwrite those for particular schema if needed.
 
+  #### Going back to base struct
+
+  ##### Base struct
+
+  Diverged schemas have predefined function `to_base/1` that applies simple modifications in order to get base struct from diverged.
+
+  ##### Base changeset
+
+  Diverged schemas have predefined function, based on [`DiscriminatorChangeset.base_changeset/3`](`EctoDiscriminator.DiscriminatorChangeset.base_changeset/3`),
+  that allows creating changesets for base schemas directly from diverged (check [here](`EctoDiscriminator.DiscriminatorChangeset.base_changeset/3`) for more).
+
   #### Casting base fields
 
-  Diverged schemas have predefined function, based on [`DiscriminatorChangeset.cast_base/3`](`EctoDiscriminator.DiscriminatorChangeset.cast_base/3`),
+  Diverged schemas have predefined function, based on [`DiscriminatorChangeset.cast_base/2`](`EctoDiscriminator.DiscriminatorChangeset.cast_base/2`),
   that allows running base changesets inside changeset of diverged schema
-  (check [here](`EctoDiscriminator.DiscriminatorChangeset.cast_base/3`) for more).
+  (check [here](`EctoDiscriminator.DiscriminatorChangeset.cast_base/2`) for more).
 
   ## Querying
 
@@ -111,7 +122,14 @@ defmodule EctoDiscriminator.Schema do
     # store fields in module attribute to retrieve them in before_compile handler
     Module.put_attribute(__CALLER__.module, :fields_def, fields)
 
-    call_ecto_schema(source, nil, [fields])
+    helpers =
+      quote do
+        # nothing to do, we're already in base
+        def to_base(%__MODULE__{} = struct), do: struct
+      end
+
+    # helpers must come last to use __MODULE__
+    [call_ecto_schema(source, nil, [fields]), helpers]
   end
 
   # for diverged schema when source is name of the module from which we inherit fields
@@ -149,6 +167,20 @@ defmodule EctoDiscriminator.Schema do
     Module.put_attribute(caller_module, :fields_def, merged_fields)
 
     [primary_key, schema, helpers, unique_fields_macro]
+  end
+
+  # transforms diverged schema to base
+  def to_base(%_{} = struct, source) do
+    data =
+      struct
+      |> Map.from_struct()
+      # have to update __meta__ because it comes from different schema
+      |> put_in([Access.key(:__meta__), Access.key(:schema)], source)
+      # take only items that hold some value to avoid differences in relationship owners
+      |> Enum.reject(fn {_, value} -> match?(%Ecto.Association.NotLoaded{}, value) end)
+      |> Enum.into(%{})
+
+    struct(source, data)
   end
 
   defp set_up_schema() do
@@ -323,22 +355,29 @@ defmodule EctoDiscriminator.Schema do
   defp diverged_helpers(source) do
     source_protocol = Module.concat(source, Diverged)
 
-    protocol_impl =
-      quote do
+    helpers =
+      quote generated: true do
         defimpl unquote(source_protocol) do
           def dummy(_), do: nil
         end
+
+        def to_base(%__MODULE__{} = struct),
+          do: EctoDiscriminator.Schema.to_base(struct, unquote(source))
       end
 
-    cast_base =
+    changeset_helpers =
       if function_exported?(source, :changeset, 2) do
         quote bind_quoted: [source: source] do
           defp cast_base(data, params),
-            do: EctoDiscriminator.DiscriminatorChangeset.cast_base(data, params, unquote(source))
+            do: EctoDiscriminator.DiscriminatorChangeset.cast_base(data, params)
+
+          # add special changeset that will make possible to produce base schema changesets using diverged module name
+          def base_changeset(struct, params \\ %{}),
+            do: EctoDiscriminator.DiscriminatorChangeset.base_changeset(struct, params)
         end
       end
 
-    [protocol_impl, cast_base]
+    [helpers, changeset_helpers]
   end
 
   defp inheritance_helpers(env) do

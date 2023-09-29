@@ -31,7 +31,8 @@ defmodule EctoDiscriminator.SchemaTest do
     end
 
     test "prvides access to the list of diverged schemas" do
-      assert MapSet.new([SomeTable.Foo, SomeTable.Bar, SomeTable.Baz]) == MapSet.new(SomeTable.__schema__(:diverged))
+      assert MapSet.new([SomeTable.Foo, SomeTable.Bar, SomeTable.Baz]) ==
+               MapSet.new(SomeTable.__schema__(:diverged))
     end
 
     test "doesn't set default value for discriminator" do
@@ -211,6 +212,10 @@ defmodule EctoDiscriminator.SchemaTest do
     test "sets default value for discriminator" do
       struct = %SomeTable.Foo{}
       assert struct.type == SomeTable.Foo
+    end
+
+    test "reduces to base schema" do
+      assert %SomeTable{type: SomeTable.Foo} == SomeTable.Foo.to_base(%SomeTable.Foo{})
     end
 
     test "inherites derived protocols" do
