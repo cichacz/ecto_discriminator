@@ -16,6 +16,12 @@ defmodule EctoDiscriminator.SomeTable.FooPk do
   defimpl EctoDiscriminator.DiscriminatorChangeset do
     def diverged_changeset(_, _), do: raise("There is no diverged schema for #{@for}")
 
+    def base_changeset(data, params, source) do
+      data
+      |> change()
+      |> EctoDiscriminator.DiscriminatorChangeset.base_changeset(params, source)
+    end
+
     def cast_base(data, params, source) do
       data
       |> change()

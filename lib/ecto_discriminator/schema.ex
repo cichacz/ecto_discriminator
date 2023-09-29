@@ -23,6 +23,11 @@ defmodule EctoDiscriminator.Schema do
   There is no problem with having other fields defined if someone needs it for some functionality though.
   Any field can be overriden by diverged schema.
 
+  #### Base changeset
+
+  Diverged schemas have predefined function, based on [`DiscriminatorChangeset.base_changeset/3`](`EctoDiscriminator.DiscriminatorChangeset.base_changeset/3`),
+  that allows creating changesets for base schemas directly from diverged (check [here](`EctoDiscriminator.DiscriminatorChangeset.base_changeset/3`) for more).
+
   #### Diverged changeset
 
   Base schemas have predefined function, based on [`DiscriminatorChangeset.diverged_changeset/2`](`EctoDiscriminator.DiscriminatorChangeset.diverged_changeset/2`),
@@ -335,6 +340,15 @@ defmodule EctoDiscriminator.Schema do
         quote bind_quoted: [source: source] do
           defp cast_base(data, params),
             do: EctoDiscriminator.DiscriminatorChangeset.cast_base(data, params, unquote(source))
+
+          # add special changeset that will make possible to produce base schema changesets using diverged module name
+          def base_changeset(struct, params \\ %{}),
+            do:
+              EctoDiscriminator.DiscriminatorChangeset.base_changeset(
+                struct,
+                params,
+                unquote(source)
+              )
         end
       end
 

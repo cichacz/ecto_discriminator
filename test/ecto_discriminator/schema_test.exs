@@ -31,7 +31,8 @@ defmodule EctoDiscriminator.SchemaTest do
     end
 
     test "prvides access to the list of diverged schemas" do
-      assert MapSet.new([SomeTable.Foo, SomeTable.Bar, SomeTable.Baz]) == MapSet.new(SomeTable.__schema__(:diverged))
+      assert MapSet.new([SomeTable.Foo, SomeTable.Bar, SomeTable.Baz]) ==
+               MapSet.new(SomeTable.__schema__(:diverged))
     end
 
     test "doesn't set default value for discriminator" do
