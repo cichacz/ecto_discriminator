@@ -59,13 +59,13 @@ defmodule EctoDiscriminator.DiscriminatorChangesetTest do
     end
   end
 
-  describe "base_changeset/3" do
+  describe "base_changeset/2" do
+    @tag :only
     test "returns itself on base schema" do
       changeset =
         DiscriminatorChangeset.base_changeset(
           %SomeTable{parent: nil},
-          %{title: "abc", source: "source", content: %{length: 7}},
-          SomeTable
+          %{title: "abc", source: "source", content: %{length: 7}}
         )
 
       assert %Ecto.Changeset{
@@ -81,8 +81,7 @@ defmodule EctoDiscriminator.DiscriminatorChangesetTest do
       changeset =
         DiscriminatorChangeset.base_changeset(
           %SomeTable.Foo{parent: nil, source: "asdf"},
-          %{title: "abc", source: "source", content: %{length: 7}},
-          SomeTable
+          %{title: "abc", source: "source", content: %{length: 7}}
         )
 
       assert %Ecto.Changeset{
@@ -104,7 +103,7 @@ defmodule EctoDiscriminator.DiscriminatorChangesetTest do
         })
         |> Repo.insert!()
 
-      changeset = DiscriminatorChangeset.base_changeset(foo, %{}, SomeTable)
+      changeset = DiscriminatorChangeset.base_changeset(foo, %{})
 
       assert %{} == changeset.changes
       assert changeset.valid?
@@ -129,13 +128,12 @@ defmodule EctoDiscriminator.DiscriminatorChangesetTest do
     end
   end
 
-  describe "cast_base/3" do
+  describe "cast_base/2" do
     test "properly merges new changesets" do
       changeset =
         DiscriminatorChangeset.cast_base(
           %SomeTable.Foo{},
-          %{title: "abc", source: "source", content: %{length: 7}},
-          SomeTable
+          %{title: "abc", source: "source", content: %{length: 7}}
         )
 
       # content is overridden in Foo with different type so can't be a change in base changeset
@@ -144,8 +142,7 @@ defmodule EctoDiscriminator.DiscriminatorChangesetTest do
       changeset =
         DiscriminatorChangeset.cast_base(
           %SomeTable.FooPk{},
-          %{title: "abc", source: "source"},
-          EctoDiscriminator.SomeTablePk
+          %{title: "abc", source: "source"}
         )
 
       # all fields are overriden in FooPk
@@ -156,15 +153,13 @@ defmodule EctoDiscriminator.DiscriminatorChangesetTest do
       changeset =
         DiscriminatorChangeset.cast_base(
           %SomeTable.Foo{},
-          %{title: "abc", source: "source", content: %{length: 7}},
-          SomeTable
+          %{title: "abc", source: "source", content: %{length: 7}}
         )
 
       changeset =
         DiscriminatorChangeset.cast_base(
           changeset,
-          %{title: "def"},
-          SomeTable
+          %{title: "def"}
         )
 
       # content is overridden in Foo with different type so can't be a change in base changeset
