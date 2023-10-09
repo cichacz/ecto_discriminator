@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.4.1
+    
+* Bug fix
+    * Fixed definition of fields in diverged schema to allow more complex relationships definitions
+
 ## v0.4.0
 
 * Enhancements

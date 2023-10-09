@@ -59,8 +59,8 @@ defmodule EctoDiscriminator.Schema do
 
   ##### Base changeset
 
-  Diverged schemas have predefined function, based on [`DiscriminatorChangeset.base_changeset/3`](`EctoDiscriminator.DiscriminatorChangeset.base_changeset/3`),
-  that allows creating changesets for base schemas directly from diverged (check [here](`EctoDiscriminator.DiscriminatorChangeset.base_changeset/3`) for more).
+  Diverged schemas have predefined function, based on [`DiscriminatorChangeset.base_changeset/2`](`EctoDiscriminator.DiscriminatorChangeset.base_changeset/2`),
+  that allows creating changesets for base schemas directly from diverged (check [here](`EctoDiscriminator.DiscriminatorChangeset.base_changeset/2`) for more).
 
   #### Casting base fields
 
