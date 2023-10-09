@@ -9,6 +9,8 @@ defmodule EctoDiscriminator.SomeTable do
     field :content, :map
     field :type, EctoDiscriminator.DiscriminatorType
     belongs_to :parent, EctoDiscriminator.SomeTable.Foo
+    belongs_to :pk, EctoDiscriminator.SomeTablePk, foreign_key: :type, references: :type, define_field: false
+    has_one :self, through: [:pk, :not_pk]
 
     timestamps()
   end

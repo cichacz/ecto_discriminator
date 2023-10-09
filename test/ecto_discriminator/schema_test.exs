@@ -26,6 +26,8 @@ defmodule EctoDiscriminator.SchemaTest do
                {:field, _, [:content, :map]},
                {:field, _, [:type, _]},
                {:belongs_to, _, [:parent, _]},
+               {:belongs_to, _, [:pk, _, _]},
+               {:has_one, _, [:self, [through: [:pk, :not_pk]]]},
                {:timestamps, _, []}
              ] = common_fields
     end
@@ -177,19 +179,22 @@ defmodule EctoDiscriminator.SchemaTest do
         |> Enum.map(&String.to_atom/1)
 
       assert [
-               {:has_one, _, [:child, _, _]},
-               {:has_one, _, [:sibling, _, _]},
-               {:field, _, [:source, :string]},
-               {:timestamps, _, []},
-               {:belongs_to, _, [:parent, _]},
+               {:field, _, [:title, :string]},
+               {:embeds_one, _, [:content, {_, _, ^content_module}]},
                {:field, _,
                 [
                   :type,
                   {:__aliases__, _, [:EctoDiscriminator, :DiscriminatorType]},
                   [default: SomeTable.Foo]
                 ]},
-               {:embeds_one, _, [:content, {_, _, ^content_module}]},
-               {:field, _, [:title, :string]}
+               {:belongs_to, _, [:parent, _]},
+               {:belongs_to, _, [:pk, _, _]},
+               {:has_one, _, [:self, [through: [:pk, :not_pk]]]},
+               {:timestamps, _, []},
+               {:field, _, [:source, :string]},
+               {:has_one, _, [:sibling, _, _]},
+               {:has_one, _, [:child, _, _]},
+               {:has_one, _, [:myself, [through: [:pk, :not_pk]]]}
              ] = fields
     end
 
@@ -429,7 +434,7 @@ defmodule EctoDiscriminator.SchemaTest do
       assert baz_from_repo.is_special == true
 
       SomeTable.Quux.changeset(%SomeTable.Quux{}, %{
-        title: "Quux",
+        title: :a,
         source: "qux",
         content: %{length: 3},
         is_special: false,

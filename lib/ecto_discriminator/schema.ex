@@ -325,6 +325,8 @@ defmodule EctoDiscriminator.Schema do
     # drop primary key since it's not part of fields def
     |> Keyword.delete(pk_name)
     |> Keyword.values()
+    # reverse to mantain the same order as in code this is important in terms of relationships
+    |> Enum.reverse()
   end
 
   defp ast_kv_by_field_name(ast) do

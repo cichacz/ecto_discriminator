@@ -8,6 +8,7 @@ defmodule EctoDiscriminator.SomeTable.Foo do
     embeds_one :content, EctoDiscriminator.SomeTable.FooContent
     has_one :sibling, EctoDiscriminator.SomeTable.Bar, foreign_key: :sibling_id
     has_one :child, EctoDiscriminator.SomeTable, foreign_key: :parent_id
+    has_one :myself, through: [:pk, :not_pk]
   end
 
   def changeset(struct, params \\ %{}) do
