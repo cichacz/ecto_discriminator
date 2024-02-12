@@ -112,11 +112,11 @@ defmodule EctoDiscriminator.SchemaTest do
       refute foo_changes.valid?
 
       foo_changes = SomeTable.diverged_changeset(foo_changes, %{source: "abc"})
-      assert %{source: "abc", parent: nil} == foo_changes.changes
+      assert %{source: "abc"} == foo_changes.changes
       refute foo_changes.valid?
 
       foo_changes = SomeTable.diverged_changeset(foo_changes, %{source: "def"})
-      assert %{source: "def", parent: nil} == foo_changes.changes
+      assert %{source: "def"} == foo_changes.changes
       refute foo_changes.valid?
 
       foo_changes =
@@ -126,8 +126,7 @@ defmodule EctoDiscriminator.SchemaTest do
 
       assert %{
                source: "def",
-               content: %Ecto.Changeset{data: %EctoDiscriminator.SomeTable.FooContent{}},
-               parent: nil
+               content: %Ecto.Changeset{data: %EctoDiscriminator.SomeTable.FooContent{}}
              } = foo_changes.changes
 
       assert foo_changes.valid?
@@ -319,7 +318,10 @@ defmodule EctoDiscriminator.SchemaTest do
     test "allows setting fields from base schema" do
       # check if we can set common fields
       foo =
-        SomeTable.Foo.changeset(%SomeTable.Foo{}, %{title: "Foo one", content: %{length: 7}})
+        SomeTable.Foo.changeset(%SomeTable.Foo{parent: nil}, %{
+          title: "Foo one",
+          content: %{length: 7}
+        })
         |> Repo.insert!()
 
       # check if we can set common relationships
@@ -329,7 +331,7 @@ defmodule EctoDiscriminator.SchemaTest do
 
       # check if we can set custom relationships
       bar =
-        SomeTable.Bar.changeset(%SomeTable.Bar{}, %{title: "Bar two", sibling: foo})
+        SomeTable.Bar.changeset(%SomeTable.Bar{parent: nil}, %{title: "Bar two", sibling: foo})
         |> Repo.insert!()
 
       child_preload_chain = [parent: [:parent, sibling: [:parent, sibling: [:parent]]]]
@@ -356,19 +358,18 @@ defmodule EctoDiscriminator.SchemaTest do
       refute foo_changes.valid?
 
       foo_changes = SomeTable.Foo.changeset(foo_changes, %{source: "abc"})
-      assert %{source: "abc", parent: nil} == foo_changes.changes
+      assert %{source: "abc"} == foo_changes.changes
       refute foo_changes.valid?
 
       foo_changes = SomeTable.Foo.changeset(foo_changes, %{source: "def"})
-      assert %{source: "def", parent: nil} == foo_changes.changes
+      assert %{source: "def"} == foo_changes.changes
       refute foo_changes.valid?
 
       foo_changes = SomeTable.Foo.changeset(foo_changes, %{content: %{length: 7}})
 
       assert %{
                source: "def",
-               content: %Ecto.Changeset{data: %EctoDiscriminator.SomeTable.FooContent{}},
-               parent: nil
+               content: %Ecto.Changeset{data: %EctoDiscriminator.SomeTable.FooContent{}}
              } = foo_changes.changes
 
       assert foo_changes.valid?
@@ -386,7 +387,7 @@ defmodule EctoDiscriminator.SchemaTest do
       [bar_preloaded] =
         SomeTable.Bar
         |> join(:left, [bar], foo in assoc(bar, :sibling))
-        |> preload([bar, foo], [:parent, sibling: {foo, [:parent]}])
+        |> preload([bar, foo], sibling: foo)
         |> Repo.all()
 
       assert bar_preloaded == %{bar | sibling: foo}

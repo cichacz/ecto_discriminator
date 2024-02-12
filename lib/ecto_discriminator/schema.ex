@@ -169,18 +169,20 @@ defmodule EctoDiscriminator.Schema do
     [primary_key, schema, helpers, unique_fields_macro]
   end
 
-  # transforms diverged schema to base
-  def to_base(%_{} = struct, source) do
+  # transforms `struct` to `destination`
+  def to_base(%_{} = struct, destination) do
     data =
       struct
       |> Map.from_struct()
       # have to update __meta__ because it comes from different schema
-      |> put_in([Access.key(:__meta__), Access.key(:schema)], source)
+      |> put_in([Access.key(:__meta__), Access.key(:schema)], destination)
       # take only items that hold some value to avoid differences in relationship owners
-      |> Enum.reject(fn {_, value} -> match?(%Ecto.Association.NotLoaded{}, value) end)
+      |> Enum.reject(fn {_, value} ->
+        match?(%Ecto.Association.NotLoaded{}, value) || is_nil(value)
+      end)
       |> Enum.into(%{})
 
-    struct(source, data)
+    struct(destination, data)
   end
 
   defp set_up_schema() do

@@ -4,6 +4,7 @@ defmodule EctoDiscriminator.DiscriminatorChangesetTest do
   alias EctoDiscriminator.DiscriminatorChangeset
 
   alias EctoDiscriminator.SomeTable
+  alias EctoDiscriminator.SomeTablePk
 
   doctest DiscriminatorChangeset
 
@@ -57,6 +58,33 @@ defmodule EctoDiscriminator.DiscriminatorChangesetTest do
 
       assert foo == Ecto.Changeset.apply_action!(changeset, :insert)
     end
+
+    test "uses defaults from diverged schema" do
+      changeset =
+        SomeTablePk.diverged_changeset(%SomeTablePk{}, %{type: SomeTable.FooPk, source: "asdf"})
+
+      assert %SomeTable.FooPk{title: :b} = changeset.data
+    end
+
+    test "can override defaults from diverged schema" do
+      changeset =
+        SomeTablePk.diverged_changeset(%SomeTablePk{}, %{
+          type: SomeTable.FooPk,
+          source: "asdf",
+          title: :a
+        })
+
+      assert %SomeTable.FooPk{title: :a} = Ecto.Changeset.apply_action!(changeset, :insert)
+
+      changeset =
+        SomeTablePk.diverged_changeset(%SomeTablePk{}, %{
+          type: SomeTable.FooPk,
+          source: "asdf",
+          title: nil
+        })
+
+      assert %SomeTable.FooPk{title: nil} = Ecto.Changeset.apply_action!(changeset, :insert)
+    end
   end
 
   describe "base_changeset/2" do
@@ -89,13 +117,13 @@ defmodule EctoDiscriminator.DiscriminatorChangesetTest do
                changes: %{title: "abc", content: %{length: 7}}
              } = changeset
 
-      assert %SomeTable{type: SomeTable.Foo, title: "abc", content: %{length: 7}, parent: nil} ==
+      assert %SomeTable{type: SomeTable.Foo, title: "abc", content: %{length: 7}} ==
                Ecto.Changeset.apply_action!(changeset, :insert)
     end
 
     test "keeps metadata state" do
       foo =
-        SomeTable.diverged_changeset(%SomeTable{parent: nil}, %{
+        SomeTable.diverged_changeset(%SomeTable{}, %{
           title: "Foo one",
           source: "asdf",
           type: SomeTable.Foo,
@@ -122,7 +150,11 @@ defmodule EctoDiscriminator.DiscriminatorChangesetTest do
                updated_at: foo.updated_at,
                title: foo.title,
                content: foo.content,
-               parent: foo.parent
+               parent: %Ecto.Association.NotLoaded{
+                 __cardinality__: :one,
+                 __field__: :parent,
+                 __owner__: EctoDiscriminator.SomeTable
+               }
              } ==
                Ecto.Changeset.apply_action!(changeset, :insert)
     end
@@ -137,7 +169,7 @@ defmodule EctoDiscriminator.DiscriminatorChangesetTest do
         )
 
       # content is overridden in Foo with different type so can't be a change in base changeset
-      assert %{title: "abc", parent: nil} == changeset.changes
+      assert %{title: "abc"} == changeset.changes
 
       changeset =
         DiscriminatorChangeset.cast_base(
@@ -163,7 +195,7 @@ defmodule EctoDiscriminator.DiscriminatorChangesetTest do
         )
 
       # content is overridden in Foo with different type so can't be a change in base changeset
-      assert %{title: "def", parent: nil} == changeset.changes
+      assert %{title: "def"} == changeset.changes
     end
   end
 end
