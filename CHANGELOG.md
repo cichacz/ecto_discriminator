@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.4.2
+    
+* Bug fix
+    * Fixed `diverged_changeset/2` to properly calculate default values
+
 ## v0.4.1
     
 * Bug fix
