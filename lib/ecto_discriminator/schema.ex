@@ -177,8 +177,9 @@ defmodule EctoDiscriminator.Schema do
       # have to update __meta__ because it comes from different schema
       |> put_in([Access.key(:__meta__), Access.key(:schema)], destination)
       # take only items that hold some value to avoid differences in relationship owners
-      |> Enum.reject(fn {_, value} ->
-        match?(%Ecto.Association.NotLoaded{}, value) || is_nil(value)
+      |> Enum.reject(fn {k, value} ->
+        match?(%Ecto.Association.NotLoaded{}, value) ||
+          (is_nil(value) && !destination.__schema__(:association, k))
       end)
       |> Enum.into(%{})
 

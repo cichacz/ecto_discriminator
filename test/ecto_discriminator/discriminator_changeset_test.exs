@@ -117,7 +117,7 @@ defmodule EctoDiscriminator.DiscriminatorChangesetTest do
                changes: %{title: "abc", content: %{length: 7}}
              } = changeset
 
-      assert %SomeTable{type: SomeTable.Foo, title: "abc", content: %{length: 7}} ==
+      assert %SomeTable{type: SomeTable.Foo, parent: nil, title: "abc", content: %{length: 7}} ==
                Ecto.Changeset.apply_action!(changeset, :insert)
     end
 
