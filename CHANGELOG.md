@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.4.3
+    
+* Bug fix
+    * Fixed `EctoDiscriminator.Schema.to_base/2` to properly pass nil values
+
 ## v0.4.2
     
 * Bug fix
