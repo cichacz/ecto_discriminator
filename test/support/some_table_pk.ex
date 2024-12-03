@@ -13,7 +13,10 @@ defmodule EctoDiscriminator.SomeTablePk do
     # make sure field types can contain aliases and module attributes
     field :title, Enum, values: @values
 
-    belongs_to :not_pk, EctoDiscriminator.SomeTable, foreign_key: :type, references: :type, define_field: false
+    belongs_to :not_pk, EctoDiscriminator.SomeTable,
+      foreign_key: :type,
+      references: :type,
+      define_field: false
   end
 
   def changeset(struct, params \\ %{}) do

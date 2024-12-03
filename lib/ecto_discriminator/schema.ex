@@ -315,7 +315,7 @@ defmodule EctoDiscriminator.Schema do
       {field_type, meta, [name, existing_type | existing_rest]} ->
         # otherwise in case of conflict and matching types, merge options
         if Macro.expand(type, __ENV__) == Macro.expand(existing_type, __ENV__) do
-          rest = merge_rest_options(existing_rest, List.first(rest) || [])
+          rest = merge_rest_options(existing_rest, rest)
           add_duplicate_meta({field_type, meta, [name, type | rest]})
         else
           new
@@ -349,11 +349,19 @@ defmodule EctoDiscriminator.Schema do
     update_in(ast, [Access.elem(1)], &Keyword.put(&1, :duplicate, true))
   end
 
-  defp merge_rest_options(rest, opts) when is_list(opts) do
+  defp merge_rest_options(rest, opts) do
+    {opts, opts_rest} =
+      case opts do
+        [op | rest] -> {op, rest}
+        op -> {op, []}
+      end
+
+    opts = List.wrap(opts)
+
     case rest do
       [] when opts == [] -> []
       [] -> [opts]
-      [existing] -> [Keyword.merge(existing, opts)]
+      [existing | _] -> [Keyword.merge(existing, opts) | opts_rest]
     end
   end
 

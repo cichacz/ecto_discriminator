@@ -30,7 +30,7 @@ defmodule EctoDiscriminator.DiscriminatorChangesetTest do
           source: "asdf",
           is_special: true,
           type: SomeTable.Qux,
-          content: %{length: 7}
+          content: %{text: "abc"}
         })
         |> Ecto.Changeset.apply_action!(:insert)
 

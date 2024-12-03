@@ -437,7 +437,7 @@ defmodule EctoDiscriminator.SchemaTest do
       SomeTable.Quux.changeset(%SomeTable.Quux{}, %{
         title: :a,
         source: "qux",
-        content: %{length: 3},
+        content: %{quux_text: "abc"},
         is_special: false,
         is_last: true
       })
