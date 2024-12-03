@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.4.4
+    
+* Bug fix
+    * Fixed merging of more complex fields like `embeds_one`
+
 ## v0.4.3
     
 * Bug fix
