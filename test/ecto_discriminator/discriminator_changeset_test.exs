@@ -60,8 +60,7 @@ defmodule EctoDiscriminator.DiscriminatorChangesetTest do
     end
 
     test "uses defaults from diverged schema" do
-      changeset =
-        SomeTablePk.diverged_changeset(%SomeTablePk{}, %{type: SomeTable.FooPk, source: "asdf"})
+      changeset = SomeTablePk.diverged_changeset(%SomeTable.FooPk{}, %{source: "asdf"})
 
       assert %SomeTable.FooPk{title: :b} = changeset.data
     end
@@ -84,11 +83,45 @@ defmodule EctoDiscriminator.DiscriminatorChangesetTest do
         })
 
       assert %SomeTable.FooPk{title: nil} = Ecto.Changeset.apply_action!(changeset, :insert)
+
+      # make sure defaults aren't used when value is provided by base schema (we may want to nil-ify value)
+      changeset =
+        SomeTablePk.diverged_changeset(%SomeTablePk{title: nil}, %{
+          type: SomeTable.FooPk,
+          source: "asdf"
+        })
+
+      assert %SomeTable.FooPk{title: nil} = Ecto.Changeset.apply_action!(changeset, :insert)
+    end
+
+    @tag :only
+    test "properly handles overriden embeds" do
+      changeset =
+        SomeTable.diverged_changeset(%SomeTable.Grault{}, %{
+          source: "source",
+          title: "abc",
+          is_special: true,
+          content: %{grault_text: "grault"}
+        })
+
+      inserted = Ecto.Changeset.apply_action!(changeset, :insert)
+
+      assert %SomeTable.Grault{
+               title: "abc",
+               source: "source",
+               is_special: true,
+               content: %SomeTable.Grault.Content{grault_text: "grault"}
+             } == inserted
+
+      changeset =
+        SomeTable.diverged_changeset(inserted, %{content: %{grault_text: "grault_updated"}})
+
+      assert %SomeTable.Grault{content: %SomeTable.Grault.Content{grault_text: "grault_updated"}} =
+               Ecto.Changeset.apply_action!(changeset, :insert)
     end
   end
 
   describe "base_changeset/2" do
-    @tag :only
     test "returns itself on base schema" do
       changeset =
         DiscriminatorChangeset.base_changeset(
@@ -149,7 +182,8 @@ defmodule EctoDiscriminator.DiscriminatorChangesetTest do
                inserted_at: foo.inserted_at,
                updated_at: foo.updated_at,
                title: foo.title,
-               content: foo.content,
+               # content is overridden in Foo so base table won't have it populated
+               content: nil,
                parent: %Ecto.Association.NotLoaded{
                  __cardinality__: :one,
                  __field__: :parent,

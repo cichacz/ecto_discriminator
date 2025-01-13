@@ -437,7 +437,7 @@ defmodule EctoDiscriminator.SchemaTest do
       SomeTable.Quux.changeset(%SomeTable.Quux{}, %{
         title: :a,
         source: "qux",
-        content: %{quux_text: "abc"},
+        content: %{text: "abc"},
         is_special: false,
         is_last: true
       })
@@ -468,8 +468,19 @@ defmodule EctoDiscriminator.SchemaTest do
 
     test "can override schema protocol" do
       assert_raise RuntimeError, fn ->
-        EctoDiscriminator.DiscriminatorChangeset.diverged_changeset(%SomeTable.FooPk{})
+        EctoDiscriminator.DiscriminatorChangeset.diverged_changeset(%SomeTable.Baz{})
       end
+    end
+
+    test "can inherit relationships" do
+      bar =
+        %SomeTable.Corge{}
+        |> SomeTable.Corge.changeset(%{is_special: true, content: %{name: "def"}})
+        |> Repo.insert!()
+
+      [row] = SomeTable.Corge |> preload([:content, :sibling]) |> Repo.all()
+
+      assert row == bar
     end
   end
 end

@@ -15,4 +15,20 @@ defmodule EctoDiscriminator.SomeTable.Baz do
     |> cast_assoc(:content)
     |> validate_required([:is_special])
   end
+
+  defimpl EctoDiscriminator.DiscriminatorChangeset do
+    def diverged_changeset(_, _), do: raise("There is no diverged schema for #{@for}")
+
+    def base_changeset(data, params) do
+      data
+      |> change()
+      |> EctoDiscriminator.DiscriminatorChangeset.base_changeset(params)
+    end
+
+    def cast_base(data, params) do
+      data
+      |> change()
+      |> EctoDiscriminator.DiscriminatorChangeset.cast_base(params)
+    end
+  end
 end

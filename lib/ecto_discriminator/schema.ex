@@ -126,6 +126,7 @@ defmodule EctoDiscriminator.Schema do
       quote do
         # nothing to do, we're already in base
         def to_base(%__MODULE__{} = struct), do: struct
+        def __schema__(:unique_fields), do: []
       end
 
     # helpers must come last to use __MODULE__
@@ -170,21 +171,37 @@ defmodule EctoDiscriminator.Schema do
   end
 
   # transforms `struct` to `destination`
-  def to_base(%_{} = struct, destination) do
+  def to_base(%source{} = struct, destination) do
     data =
       struct
       |> Map.from_struct()
-      # have to update __meta__ because it comes from different schema
-      |> put_in([Access.key(:__meta__), Access.key(:schema)], destination)
-      # take only items that hold some value to avoid differences in relationship owners
-      |> Enum.reject(fn {k, value} ->
+      |> maybe_update_meta(destination)
+      # take only unique items that hold some value
+      |> Enum.reject(fn {key, value} ->
         match?(%Ecto.Association.NotLoaded{}, value) ||
-          (is_nil(value) && !destination.__schema__(:association, k))
+          key in source.__schema__(:unique_fields)
+      end)
+      # we have to recursively map things to their base variants (if available)
+      |> Enum.map(fn {key, value} ->
+        case destination.__schema__(:embed, key) do
+          %{related: related} when is_struct(value) ->
+            {key, to_base(value, related)}
+
+          _ ->
+            {key, value}
+        end
       end)
       |> Enum.into(%{})
 
     struct(destination, data)
   end
+
+  defp maybe_update_meta(%{__meta__: %{schema: _}} = map, destination) do
+    # have to update __meta__ because it comes from different schema
+    put_in(map, [Access.key(:__meta__), Access.key(:schema)], destination)
+  end
+
+  defp maybe_update_meta(map, _destination), do: map
 
   defp set_up_schema() do
     quote do
@@ -291,6 +308,31 @@ defmodule EctoDiscriminator.Schema do
           # set default value to the module that's requesting common fields
           rest = merge_rest_options(rest, default: caller_module)
           {:field, meta, [name, alias | rest]}
+
+        # resolve embeds aliases on the source module level
+        # this applies only when embed is defined inline (rest is not empty)
+        {:embeds_one, meta,
+         [
+           field,
+           {:__aliases__, _, alias}
+           | rest
+         ]}
+        when rest != [] ->
+          {:embeds_one, meta, [field, {:__aliases__, meta, [Elixir, source_module | alias]}]}
+
+        # we have to do some extra rewritting for relationships
+        {:has_one, meta, [field, type | rest]} ->
+          rest =
+            with %{related_key: key} <- source_module.__schema__(:association, field) do
+              case rest do
+                [] -> [[foreign_key: key]]
+                [opts] -> [Keyword.put(opts, :foreign_key, key)]
+              end
+            else
+              _ -> rest
+            end
+
+          {:has_one, meta, [field, type | rest]}
 
         other ->
           other

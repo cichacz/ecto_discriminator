@@ -125,16 +125,21 @@ defimpl EctoDiscriminator.DiscriminatorChangeset, for: Ecto.Changeset do
         Ecto.Changeset.get_field(changeset, discriminator) ||
         struct
 
-    data = EctoDiscriminator.Schema.to_base(data, diverged_schema)
+    if struct != diverged_schema do
+      data = EctoDiscriminator.Schema.to_base(data, diverged_schema)
 
-    # just call changeset from the derived schema and hope it calls cast_base to pull fields from the base schema
-    diverged_changeset = diverged_schema.changeset(data, params)
+      # just call changeset from the derived schema and hope it calls cast_base to pull fields from the base schema
+      diverged_changeset = diverged_schema.changeset(data, params)
 
-    changeset
-    # replace data & types with ones from diverged changeset to be able to continue in original changeset
-    |> Map.put(:data, diverged_changeset.data)
-    |> Map.put(:types, diverged_changeset.types)
-    |> Ecto.Changeset.merge(diverged_changeset)
+      changeset
+      # replace data & types with ones from diverged changeset to be able to continue in original changeset
+      |> Map.put(:data, diverged_changeset.data)
+      |> Map.put(:types, diverged_changeset.types)
+      |> Ecto.Changeset.merge(diverged_changeset)
+    else
+      # we can just safely run the changeset
+      diverged_schema.changeset(changeset, params)
+    end
   end
 
   def base_changeset(%{data: data} = changeset, params) do
