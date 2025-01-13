@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.4.5
+    
+* Bug fix
+    * Further improvements for inheritance of more complex fields like `embeds_one` or `has_one`
+
 ## v0.4.4
     
 * Bug fix
