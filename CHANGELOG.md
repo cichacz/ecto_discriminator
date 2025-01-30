@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.4.6
+    
+* Bug fix
+    * Changed way how values are passed when creating diverged_changeset
+
 ## v0.4.5
     
 * Bug fix
