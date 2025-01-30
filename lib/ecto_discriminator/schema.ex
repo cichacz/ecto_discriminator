@@ -172,14 +172,18 @@ defmodule EctoDiscriminator.Schema do
 
   # transforms `struct` to `destination`
   def to_base(%source{} = struct, destination) do
+    state = get_in(struct, [Access.key(:__meta__), Access.key(:state)])
+
     data =
       struct
       |> Map.from_struct()
       |> maybe_update_meta(destination)
       # take only unique items that hold some value
+      # we want to use nil values only if it came from the persisted entitys
       |> Enum.reject(fn {key, value} ->
         match?(%Ecto.Association.NotLoaded{}, value) ||
-          key in source.__schema__(:unique_fields)
+          key in source.__schema__(:unique_fields) ||
+          (is_nil(value) && state == :built)
       end)
       # we have to recursively map things to their base variants (if available)
       |> Enum.map(fn {key, value} ->

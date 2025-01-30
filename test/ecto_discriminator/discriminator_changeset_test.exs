@@ -62,7 +62,21 @@ defmodule EctoDiscriminator.DiscriminatorChangesetTest do
     test "uses defaults from diverged schema" do
       changeset = SomeTablePk.diverged_changeset(%SomeTable.FooPk{}, %{source: "asdf"})
 
-      assert %SomeTable.FooPk{title: :b} = changeset.data
+      assert %SomeTable.FooPk{title: :b} = Ecto.Changeset.apply_action!(changeset, :insert)
+
+      changeset =
+        SomeTablePk.diverged_changeset(%SomeTablePk{}, %{type: SomeTable.FooPk, source: "asdf"})
+
+      assert %SomeTable.FooPk{title: :b} = Ecto.Changeset.apply_action!(changeset, :insert)
+
+      # make sure defaults are used when base schema is not persisted yet
+      # opposite scenario tested in test below
+      changeset =
+        SomeTablePk.diverged_changeset(%SomeTablePk{title: nil, type: SomeTable.FooPk}, %{
+          source: "asdf"
+        })
+
+      assert %SomeTable.FooPk{title: :b} = Ecto.Changeset.apply_action!(changeset, :insert)
     end
 
     test "can override defaults from diverged schema" do
@@ -84,17 +98,27 @@ defmodule EctoDiscriminator.DiscriminatorChangesetTest do
 
       assert %SomeTable.FooPk{title: nil} = Ecto.Changeset.apply_action!(changeset, :insert)
 
-      # make sure defaults aren't used when value is provided by base schema (we may want to nil-ify value)
       changeset =
-        SomeTablePk.diverged_changeset(%SomeTablePk{title: nil}, %{
-          type: SomeTable.FooPk,
+        SomeTablePk.diverged_changeset(%SomeTable.FooPk{}, %{
+          source: "asdf",
+          title: nil
+        })
+
+      assert %SomeTable.FooPk{title: nil} = Ecto.Changeset.apply_action!(changeset, :insert)
+
+      # make sure defaults aren't used when value is provided by base schema (we may want to nil-ify value)
+      # applies ONLY when the base schema was loaded from the database
+      # opposite scenario tested in test above
+      entity = %SomeTablePk{title: nil, type: SomeTable.FooPk} |> Repo.insert!()
+
+      changeset =
+        SomeTablePk.diverged_changeset(entity, %{
           source: "asdf"
         })
 
       assert %SomeTable.FooPk{title: nil} = Ecto.Changeset.apply_action!(changeset, :insert)
     end
 
-    @tag :only
     test "properly handles overriden embeds" do
       changeset =
         SomeTable.diverged_changeset(%SomeTable.Grault{}, %{
@@ -139,19 +163,28 @@ defmodule EctoDiscriminator.DiscriminatorChangesetTest do
     end
 
     test "returns changeset for base schema" do
+      foo = %SomeTable.Foo{parent: nil, source: "asdf"} |> Repo.insert!()
+      foo_id = foo.id
+
       changeset =
         DiscriminatorChangeset.base_changeset(
-          %SomeTable.Foo{parent: nil, source: "asdf"},
+          foo,
           %{title: "abc", source: "source", content: %{length: 7}}
         )
 
+      # source field has been removed because it doesn't exist in base schema
       assert %Ecto.Changeset{
                data: %SomeTable{type: SomeTable.Foo},
                changes: %{title: "abc", content: %{length: 7}}
              } = changeset
 
-      assert %SomeTable{type: SomeTable.Foo, parent: nil, title: "abc", content: %{length: 7}} ==
-               Ecto.Changeset.apply_action!(changeset, :insert)
+      assert %SomeTable{
+               id: ^foo_id,
+               type: SomeTable.Foo,
+               parent: nil,
+               title: "abc",
+               content: %{length: 7}
+             } = Ecto.Changeset.apply_action!(changeset, :insert)
     end
 
     test "keeps metadata state" do
